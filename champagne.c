@@ -136,26 +136,28 @@ static bool directory_exists(const char *path) {
 //      [ ] plot(histogram -> display)              # plot dB vs freq
 
 // apply window in-place on audio data
-int window(void *data) {
+int window(int k, void *data) {
     struct audio_data *audio = (struct audio_data *)data;
 
-    // cast as double
+    // copy to double array?
+
     // detrend
+    double l_start = audio->in_l[0];
+    double l_end = audio->in_l[audio->FFTbufferSize - 1];
+    double r_start = audio->in_r[0];
+    double r_end = audio->in_r[audio->FFTbufferSize - 1];
+    for (int i = 0; i < audio->FFTbufferSize; i++) {
+        audio->in_l[i] = (audio->in_l[i] - l_start) / (l_end - l_start);
+        audio->in_r[i] = (audio->in_r[i] - r_start) / (r_end - r_start);
+    }
+    
     // window
 
-    // Kolmogorov-Zurbenko (k=3, m=5) filter: repeated average of buffers
-    for (int n = 0; n < 5; n++) {
-        for (int i = 2; i < audio->FFTbufferSize - 3; i++) {
-            audio->in_l[i] = (audio->in_l[i-2] + audio->in_l[i-1] + audio->in_l[i] + audio->in_l[i+1] + audio->in_l[i+2]) / 5.0;
-            audio->in_r[i] = (audio->in_r[i-2] + audio->in_r[i-1] + audio->in_r[i] + audio->in_r[i+1] + audio->in_r[i+2]) / 5.0;
-        }
-        for (int i = 2; i < audio->FFTbufferSize - 3; i++) {
-            audio->in_l[i] = (audio->in_l[i-2] + audio->in_l[i-1] + audio->in_l[i] + audio->in_l[i+1] + audio->in_l[i+2]) / 5.0;
-            audio->in_r[i] = (audio->in_r[i-2] + audio->in_r[i-1] + audio->in_r[i] + audio->in_r[i+1] + audio->in_r[i+2]) / 5.0;
-        }
-        for (int i = 2; i < audio->FFTbufferSize - 3; i++) {
-            audio->in_l[i] = (audio->in_l[i-2] + audio->in_l[i-1] + audio->in_l[i] + audio->in_l[i+1] + audio->in_l[i+2]) / 5.0;
-            audio->in_r[i] = (audio->in_r[i-2] + audio->in_r[i-1] + audio->in_r[i] + audio->in_r[i+1] + audio->in_r[i+2]) / 5.0;
+    // Kolmogorov-Zurbenko (k, m=3) filter: repeated average of buffers
+    for (int ki = 0; ki < k; ki++) {
+        for (int i = 1; i < audio->FFTbufferSize; i++) {    // careful with bounds checking for m
+            audio->in_l[i] = (audio->in_l[i-1] + audio->in_l[i] + audio->in_l[i+1]) / 3.0;
+            audio->in_r[i] = (audio->in_r[i-1] + audio->in_r[i] + audio->in_r[i+1]) / 3.0;
         }
     }
 return 0;
@@ -683,7 +685,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     }
                 }
 
-                window(&audio);
+                window(3, &audio);
 
                 if (silence)
                     sleep++;
