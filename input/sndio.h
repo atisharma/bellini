@@ -1,4 +1,4 @@
-// header file for sndio, part of cava.
+// header file for sndio, part of champagne.
 
 #pragma once
 

@@ -1,4 +1,4 @@
-// header file for alsa, part of cava.
+// header file for alsa, part of champagne.
 
 #pragma once
 

@@ -176,7 +176,7 @@ bool validate_config(struct config_params *p, struct error_s *error) {
         p->om = OUTPUT_NCURSES;
         p->bgcol = -1;
 #ifndef NCURSES
-        write_errorf(error, "cava was built without ncurses support, install ncursesw dev files "
+        write_errorf(error, "champagne was built without ncurses support, install ncursesw dev files "
                             "and run make clean && ./configure && make again\n");
         return false;
 #endif
@@ -280,38 +280,12 @@ bool validate_config(struct config_params *p, struct error_s *error) {
         return false;
     }
 
-    // validate: gravity
-    p->gravity = p->gravity / 100;
-    if (p->gravity < 0) {
-        p->gravity = 0;
-    }
-
-    // validate: integral
-    p->integral = p->integral / 100;
-    if (p->integral < 0) {
-        p->integral = 0;
-    } else if (p->integral > 1) {
-        p->integral = 1;
-    }
-
-    // validate: cutoff
-    if (p->lower_cut_off == 0)
-        p->lower_cut_off++;
-    if (p->lower_cut_off > p->upper_cut_off) {
-        write_errorf(error,
-                     "lower cutoff frequency can't be higher than higher cutoff frequency\n");
-        return false;
-    }
-
-    // setting sens
-    p->sens = p->sens / 100;
-
-    // validate FFT buffer
-    if (p->FFTbufferSize >= 8 && p->FFTbufferSize <= 16) {
-        p->FFTbufferSize = pow(2, p->FFTbufferSize);
-    } else {
-        write_errorf(error, "FFT buffer is set in the exponent of 2 and must be between 8 - 16\n");
-        return false;
+    // validate: alpha
+    p->alpha = p->alpha;
+    if (p->alpha < 0) {
+        p->alpha = 0;
+    } else if (p->alpha > 1.0) {
+        p->alpha = 1.0;
     }
 
     return true;
@@ -361,8 +335,7 @@ bool load_colors(struct config_params *p, dictionary *ini, void *err) {
     return true;
 }
 
-bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colorsOnly,
-                 struct error_s *error) {
+bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colorsOnly, struct error_s *error) {
     FILE *fp;
 
     // config: creating path to default config file
@@ -426,11 +399,7 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
     outputMethod = (char *)iniparser_getstring(ini, "output:method", "noncurses");
 #endif
 
-    p->monstercat = 1.5 * iniparser_getdouble(ini, "smoothing:monstercat", 0);
-    p->waves = iniparser_getint(ini, "smoothing:waves", 0);
-    p->integral = iniparser_getdouble(ini, "smoothing:integral", 77);
-    p->gravity = iniparser_getdouble(ini, "smoothing:gravity", 100);
-    p->ignore = iniparser_getdouble(ini, "smoothing:ignore", 0);
+    p->alpha = iniparser_getdouble(ini, "smoothing:alpha", 0.8);
 
     if (!load_colors(p, ini, error)) {
         return false;
@@ -440,12 +409,7 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
     p->bar_width = iniparser_getint(ini, "general:bar_width", 2);
     p->bar_spacing = iniparser_getint(ini, "general:bar_spacing", 1);
     p->framerate = iniparser_getint(ini, "general:framerate", 60);
-    p->sens = iniparser_getint(ini, "general:sensitivity", 100);
-    p->autosens = iniparser_getint(ini, "general:autosens", 1);
-    p->overshoot = iniparser_getint(ini, "general:overshoot", 20);
-    p->lower_cut_off = iniparser_getint(ini, "general:lower_cutoff_freq", 50);
-    p->upper_cut_off = iniparser_getint(ini, "general:higher_cutoff_freq", 10000);
-    p->FFTbufferSize = iniparser_getint(ini, "general:FFTbufferSize", 12);
+    p->noise_floor = iniparser_getint(ini, "general:noise_floor", -60);
 
     // config: output
     free(channels);
@@ -461,25 +425,6 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
     p->frame_delim = (char)iniparser_getint(ini, "output:frame_delimiter", 10);
     p->ascii_range = iniparser_getint(ini, "output:ascii_max_range", 1000);
     p->bit_format = iniparser_getint(ini, "output:bit_format", 16);
-
-    // read & validate: eq
-    p->userEQ_keys = iniparser_getsecnkeys(ini, "eq");
-    if (p->userEQ_keys > 0) {
-        p->userEQ_enabled = 1;
-        p->userEQ = calloc(p->userEQ_keys + 1, sizeof(p->userEQ));
-#ifndef LEGACYINIPARSER
-        const char *keys[p->userEQ_keys];
-        iniparser_getseckeys(ini, "eq", keys);
-#endif
-#ifdef LEGACYINIPARSER
-        char **keys = iniparser_getseckeys(ini, "eq");
-#endif
-        for (int sk = 0; sk < p->userEQ_keys; sk++) {
-            p->userEQ[sk] = iniparser_getdouble(ini, keys[sk], 1);
-        }
-    } else {
-        p->userEQ_enabled = 0;
-    }
 
     free(p->audio_source);
 
@@ -537,7 +482,7 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
         return false;
     }
     default:
-        write_errorf(error, "cava was built without '%s' input support\n",
+        write_errorf(error, "champagne was built without '%s' input support\n",
                      input_method_names[p->im]);
         return false;
     }

@@ -1,4 +1,4 @@
-// header file for pulse, part of cava.
+// header file for pulse, part of champagne.
 
 #pragma once
 

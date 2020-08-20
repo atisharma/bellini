@@ -49,14 +49,13 @@ struct config_params {
     char *color, *bcolor, *raw_target, *audio_source,
         /**gradient_color_1, *gradient_color_2,*/ **gradient_colors, *data_format, *mono_option;
     char bar_delim, frame_delim;
-    double monstercat, integral, gravity, ignore, sens;
-    unsigned int lower_cut_off, upper_cut_off;
+    double alpha, noise_floor;
     double *userEQ;
     enum input_method im;
     enum output_method om;
-    int userEQ_keys, userEQ_enabled, col, bgcol, autobars, stereo, is_bin, ascii_range, bit_format,
-        gradient, gradient_count, fixedbars, framerate, bar_width, bar_spacing, autosens, overshoot,
-        waves, FFTbufferSize, fifoSample, fifoSampleBits;
+    int col, bgcol, autobars, stereo, is_bin, ascii_range, bit_format,
+        gradient, gradient_count, fixedbars, framerate, bar_width, bar_spacing,
+        fifoSample, fifoSampleBits;
 };
 
 struct error_s {
@@ -64,5 +63,4 @@ struct error_s {
     int length;
 };
 
-bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colorsOnly,
-                 struct error_s *error);
+bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colorsOnly, struct error_s *error);

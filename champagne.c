@@ -75,12 +75,8 @@ int reload_colors = 0;
 // will allow us to not free them on exit without ASan complaining
 struct config_params p;
 
-fftw_complex *out_bass_l, *out_bass_r;
-fftw_plan p_bass_l, p_bass_r;
-fftw_complex *out_mid_l, *out_mid_r;
-fftw_plan p_mid_l, p_mid_r;
-fftw_complex *out_treble_l, *out_treble_r;
-fftw_plan p_treble_l, p_treble_r;
+fftw_complex *out_l, *out_r;
+fftw_plan p_l, p_r;
 
 // general: cleanup
 void cleanup(void) {
@@ -132,92 +128,93 @@ static bool directory_exists(const char *path) {
 
 #endif
 
-int *separate_freq_bands(int FFTbassbufferSize, fftw_complex out_bass[FFTbassbufferSize / 2 + 1],
-                         int FFTmidbufferSize, fftw_complex out_mid[FFTmidbufferSize / 2 + 1],
-                         int FFTtreblebufferSize,
-                         fftw_complex out_treble[FFTtreblebufferSize / 2 + 1], int bass_cut_off_bar,
-                         int treble_cut_off_bar, int number_of_bars,
-                         int FFTbuffer_lower_cut_off[256], int FFTbuffer_upper_cut_off[256],
-                         double eq[256], int channel, double sens, double ignore) {
-    int n, i;
-    double peak[257];
-    static int bars_left[256];
-    static int bars_right[256];
-    double y[FFTbassbufferSize / 2 + 1];
-    double temp;
 
-    // process: separate frequency bands
-    for (n = 0; n < number_of_bars; n++) {
+// functions to write:
+//      [x] window(signal -> signal)                # time domain windowing
+//      [x] transform(signal -> power_spectrum)     # apply fft
+//      [x] bin(power_spectrum -> histogram)        # gather fft in buckets
+//      [ ] plot(histogram -> display)              # plot dB vs freq
 
-        peak[n] = 0;
-        i = 0;
+// apply window in-place on audio data
+int window(void *data) {
+    struct audio_data *audio = (struct audio_data *)data;
 
-        // process: get peaks
-        for (i = FFTbuffer_lower_cut_off[n]; i <= FFTbuffer_upper_cut_off[n]; i++) {
-            if (n <= bass_cut_off_bar) {
-                y[i] = hypot(out_bass[i][0], out_bass[i][1]);
-            } else if (n > bass_cut_off_bar && n <= treble_cut_off_bar) {
-                y[i] = hypot(out_mid[i][0], out_mid[i][1]);
-            } else if (n > treble_cut_off_bar) {
-                y[i] = hypot(out_treble[i][0], out_treble[i][1]);
-            }
+    // cast as double
+    // detrend
+    // window
 
-            peak[n] += y[i]; // adding up band
+    // Kolmogorov-Zurbenko (k=3, m=5) filter: repeated average of buffers
+    for (int n = 0; n < 5; n++) {
+        for (int i = 2; i < audio->FFTbufferSize - 3; i++) {
+            audio->in_l[i] = (audio->in_l[i-2] + audio->in_l[i-1] + audio->in_l[i] + audio->in_l[i+1] + audio->in_l[i+2]) / 5.0;
+            audio->in_r[i] = (audio->in_r[i-2] + audio->in_r[i-1] + audio->in_r[i] + audio->in_r[i+1] + audio->in_r[i+2]) / 5.0;
         }
+        for (int i = 2; i < audio->FFTbufferSize - 3; i++) {
+            audio->in_l[i] = (audio->in_l[i-2] + audio->in_l[i-1] + audio->in_l[i] + audio->in_l[i+1] + audio->in_l[i+2]) / 5.0;
+            audio->in_r[i] = (audio->in_r[i-2] + audio->in_r[i-1] + audio->in_r[i] + audio->in_r[i+1] + audio->in_r[i+2]) / 5.0;
+        }
+        for (int i = 2; i < audio->FFTbufferSize - 3; i++) {
+            audio->in_l[i] = (audio->in_l[i-2] + audio->in_l[i-1] + audio->in_l[i] + audio->in_l[i+1] + audio->in_l[i+2]) / 5.0;
+            audio->in_r[i] = (audio->in_r[i-2] + audio->in_r[i-1] + audio->in_r[i] + audio->in_r[i+1] + audio->in_r[i+2]) / 5.0;
+        }
+    }
+return 0;
+}
 
-        peak[n] = peak[n] /
-                  (FFTbuffer_upper_cut_off[n] - FFTbuffer_lower_cut_off[n] + 1); // getting average
-        temp = peak[n] * sens * eq[n]; // multiplying with k and sens
-        // printf("%d peak o: %f * sens: %f * k: %f = f: %f\n", o, peak[o], sens, eq[o], temp);
-        if (temp <= ignore)
-            temp = 0;
+
+// bin together power spectrum in dB
+int *make_bins(int FFTbufferSize,
+        unsigned int rate,
+        fftw_complex out[(FFTbufferSize / 2 + 1)],
+        int number_of_bins,
+        int channel) {
+    int n, i;
+    double power[257];
+    int L = FFTbufferSize / 2 + 1;
+    static int bins_left[256];
+    static int bins_right[256];
+    double y[L];
+    double w = 1.0 / (FFTbufferSize * rate);
+
+    // cutoff frequencies, three decades apart
+    double lower_cutoff = 20.0;
+    double upper_cutoff = 20000.0;
+
+    // get total signal power in each bin,
+    // and space bins logarithmically.
+    // freq[i] = i * rate / FFTbufferSize;
+    // so log[i](i) = log(freq[i] * FFTbufferSize / rate);
+    // and log[i] equally spaced over bins
+    int imin = floor(lower_cutoff * FFTbufferSize / rate);
+    int imax = fmin(floor(upper_cutoff * FFTbufferSize / rate), (FFTbufferSize / 2 + 1));
+
+    for (n = 0; n < 257; n++)
+        power[n] = 0.0;
+
+    for (i = imin; i < imax; i++) {
+        // nearest bin
+        y[i] = out[i][0] * out[i][0] + out[i][1] * out[i][1];       // signal power
+        //n = floor(number_of_bins * (i - imin) / (imax - imin));     // linear bin spacing
+        n = number_of_bins * (log(i) - log(imin)) / log(imax / imin);     // log bin spacing
+        // integrating over bins, multiply by 1/f for log f ordinate
+        power[n] += y[i] * w * imax / i;
+    }
+    //power[n] /= (double)rate * L;
+    // normalise for FFT size, half-sided fft, and max value of 2 ** 16 -> 0dB
+    //power[n] *= 4.0 / FFTbufferSize; 
+    // printf("%d power o: %f : %f * k: %f = f: %f\n", o, power[o], temp);
+
+    for (n = 0; n < number_of_bins; n++) {
         if (channel == LEFT_CHANNEL)
-            bars_left[n] = temp;
+            bins_left[n] = power[n];
         else
-            bars_right[n] = temp;
+            bins_right[n] = power[n];
     }
 
     if (channel == LEFT_CHANNEL)
-        return bars_left;
+        return bins_left;
     else
-        return bars_right;
-}
-
-int *monstercat_filter(int *bars, int number_of_bars, int waves, double monstercat) {
-
-    int z;
-
-    // process [smoothing]: monstercat-style "average"
-
-    int m_y, de;
-    if (waves > 0) {
-        for (z = 0; z < number_of_bars; z++) { // waves
-            bars[z] = bars[z] / 1.25;
-            // if (bars[z] < 1) bars[z] = 1;
-            for (m_y = z - 1; m_y >= 0; m_y--) {
-                de = z - m_y;
-                bars[m_y] = max(bars[z] - pow(de, 2), bars[m_y]);
-            }
-            for (m_y = z + 1; m_y < number_of_bars; m_y++) {
-                de = m_y - z;
-                bars[m_y] = max(bars[z] - pow(de, 2), bars[m_y]);
-            }
-        }
-    } else if (monstercat > 0) {
-        for (z = 0; z < number_of_bars; z++) {
-            // if (bars[z] < 1)bars[z] = 1;
-            for (m_y = z - 1; m_y >= 0; m_y--) {
-                de = z - m_y;
-                bars[m_y] = max(bars[z] / pow(monstercat, de), bars[m_y]);
-            }
-            for (m_y = z + 1; m_y < number_of_bars; m_y++) {
-                de = m_y - z;
-                bars[m_y] = max(bars[z] / pow(monstercat, de), bars[m_y]);
-            }
-        }
-    }
-
-    return bars;
+        return bins_right;
 }
 
 // general: entry point
@@ -226,22 +223,15 @@ int main(int argc, char **argv) {
     // general: define variables
     pthread_t p_thread;
     int thr_id GCC_UNUSED;
-    float cut_off_frequency[256];
-    float relative_cut_off[256];
-    int bars[256], FFTbuffer_lower_cut_off[256], FFTbuffer_upper_cut_off[256];
-    int *bars_left, *bars_right, *bars_mono;
+    int bars[256];
+    int *bars_left, *bars_right;
     int bars_mem[256];
-    int bars_last[256];
     int previous_frame[256];
     int sleep = 0;
     int n, height, lines, width, c, rest, inAtty, fp, fptest, rc;
     bool silence;
     // int cont = 1;
-    int fall[256];
     // float temp;
-    float bars_peak[256];
-    double eq[256];
-    float g;
     struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
     struct timespec sleep_mode_timer = {.tv_sec = 0, .tv_nsec = 0};
     char configPath[PATH_MAX];
@@ -254,8 +244,8 @@ Options:\n\
 	-v          print version\n\
 \n\
 Keys:\n\
-        Up        Increase sensitivity\n\
-        Down      Decrease sensitivity\n\
+        Up        Increase noise floor\n\
+        Down      Decrease noise floor\n\
         Left      Decrease number of bars\n\
         Right     Increase number of bars\n\
         r         Reload config\n\
@@ -264,12 +254,11 @@ Keys:\n\
         b         Cycle background color\n\
         q         Quit\n\
 \n\
-as of 0.4.0 all options are specified in config file, see in '/home/username/.config/cava/' \n";
+as of 0.4.0 all options are specified in config file, see in '/home/username/.config/champagne/' \n";
 
     char ch = '\0';
     int number_of_bars = 25;
     int sourceIsAuto = 1;
-    double userEQ_keys_to_bars_ratio;
 
     struct audio_data audio;
     memset(&audio, 0, sizeof(audio));
@@ -338,7 +327,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             if (strncmp(ttyname(0), "/dev/ttys", 9) == 0)
                 inAtty = 0;
             if (inAtty) {
-                system("setfont cava.psf  >/dev/null 2>&1");
+                system("setfont champagne.psf  >/dev/null 2>&1");
                 system("setterm -blank 0");
             }
 
@@ -358,89 +347,30 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         }
 
         // input: init
-        int bass_cut_off = 150;
-        int treble_cut_off = 1500;
-
         audio.source = malloc(1 + strlen(p.audio_source));
         strcpy(audio.source, p.audio_source);
 
         audio.format = -1;
         audio.rate = 0;
-        audio.FFTbassbufferSize = 4096;
-        audio.FFTmidbufferSize = 1024;
-        audio.FFTtreblebufferSize = 512;
+        audio.FFTbufferSize = 8192;
         audio.terminate = 0;
-        if (p.stereo)
-            audio.channels = 2;
-        if (!p.stereo)
-            audio.channels = 1;
-        audio.average = false;
-        audio.left = false;
-        audio.right = false;
-        if (strcmp(p.mono_option, "average") == 0)
-            audio.average = true;
-        if (strcmp(p.mono_option, "left") == 0)
-            audio.left = true;
-        if (strcmp(p.mono_option, "right") == 0)
-            audio.right = true;
-        audio.bass_index = 0;
-        audio.mid_index = 0;
-        audio.treble_index = 0;
+        audio.channels = 2;
+        audio.index = 0;
 
-        // BASS
-        // audio.FFTbassbufferSize =  audio.rate / 20; // audio.FFTbassbufferSize;
+        audio.in_r = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
+        audio.in_l = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
+        memset(audio.in_r, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(double));
+        memset(audio.in_l, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(double));
 
-        audio.in_bass_r = fftw_alloc_real(2 * (audio.FFTbassbufferSize / 2 + 1));
-        audio.in_bass_l = fftw_alloc_real(2 * (audio.FFTbassbufferSize / 2 + 1));
-        memset(audio.in_bass_r, 0, 2 * (audio.FFTbassbufferSize / 2 + 1) * sizeof(double));
-        memset(audio.in_bass_l, 0, 2 * (audio.FFTbassbufferSize / 2 + 1) * sizeof(double));
+        out_l = fftw_alloc_complex(2 * (audio.FFTbufferSize / 2 + 1));
+        out_r = fftw_alloc_complex(2 * (audio.FFTbufferSize / 2 + 1));
+        memset(out_l, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(fftw_complex));
+        memset(out_r, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(fftw_complex));
 
-        out_bass_l = fftw_alloc_complex(2 * (audio.FFTbassbufferSize / 2 + 1));
-        out_bass_r = fftw_alloc_complex(2 * (audio.FFTbassbufferSize / 2 + 1));
-        memset(out_bass_l, 0, 2 * (audio.FFTbassbufferSize / 2 + 1) * sizeof(fftw_complex));
-        memset(out_bass_r, 0, 2 * (audio.FFTbassbufferSize / 2 + 1) * sizeof(fftw_complex));
+        p_l = fftw_plan_dft_r2c_1d(audio.FFTbufferSize, audio.in_l, out_l, FFTW_MEASURE);
+        p_r = fftw_plan_dft_r2c_1d(audio.FFTbufferSize, audio.in_r, out_r, FFTW_MEASURE);
 
-        p_bass_l = fftw_plan_dft_r2c_1d(audio.FFTbassbufferSize, audio.in_bass_l, out_bass_l,
-                                        FFTW_MEASURE);
-        p_bass_r = fftw_plan_dft_r2c_1d(audio.FFTbassbufferSize, audio.in_bass_r, out_bass_r,
-                                        FFTW_MEASURE);
-
-        // MID
-        // audio.FFTmidbufferSize =  audio.rate / bass_cut_off; // audio.FFTbassbufferSize;
-        audio.in_mid_r = fftw_alloc_real(2 * (audio.FFTmidbufferSize / 2 + 1));
-        audio.in_mid_l = fftw_alloc_real(2 * (audio.FFTmidbufferSize / 2 + 1));
-        memset(audio.in_mid_r, 0, 2 * (audio.FFTmidbufferSize / 2 + 1) * sizeof(double));
-        memset(audio.in_mid_l, 0, 2 * (audio.FFTmidbufferSize / 2 + 1) * sizeof(double));
-
-        out_mid_l = fftw_alloc_complex(2 * (audio.FFTmidbufferSize / 2 + 1));
-        out_mid_r = fftw_alloc_complex(2 * (audio.FFTmidbufferSize / 2 + 1));
-        memset(out_mid_l, 0, 2 * (audio.FFTmidbufferSize / 2 + 1) * sizeof(fftw_complex));
-        memset(out_mid_r, 0, 2 * (audio.FFTmidbufferSize / 2 + 1) * sizeof(fftw_complex));
-
-        p_mid_l =
-            fftw_plan_dft_r2c_1d(audio.FFTmidbufferSize, audio.in_mid_l, out_mid_l, FFTW_MEASURE);
-        p_mid_r =
-            fftw_plan_dft_r2c_1d(audio.FFTmidbufferSize, audio.in_mid_r, out_mid_r, FFTW_MEASURE);
-
-        // TRIEBLE
-        // audio.FFTtreblebufferSize =  audio.rate / treble_cut_off; // audio.FFTbassbufferSize;
-        audio.in_treble_r = fftw_alloc_real(2 * (audio.FFTtreblebufferSize / 2 + 1));
-        audio.in_treble_l = fftw_alloc_real(2 * (audio.FFTtreblebufferSize / 2 + 1));
-        memset(audio.in_treble_r, 0, 2 * (audio.FFTtreblebufferSize / 2 + 1) * sizeof(double));
-        memset(audio.in_treble_l, 0, 2 * (audio.FFTtreblebufferSize / 2 + 1) * sizeof(double));
-
-        out_treble_l = fftw_alloc_complex(2 * (audio.FFTtreblebufferSize / 2 + 1));
-        out_treble_r = fftw_alloc_complex(2 * (audio.FFTtreblebufferSize / 2 + 1));
-        memset(out_treble_l, 0, 2 * (audio.FFTtreblebufferSize / 2 + 1) * sizeof(fftw_complex));
-        memset(out_treble_r, 0, 2 * (audio.FFTtreblebufferSize / 2 + 1) * sizeof(fftw_complex));
-
-        p_treble_l = fftw_plan_dft_r2c_1d(audio.FFTtreblebufferSize, audio.in_treble_l,
-                                          out_treble_l, FFTW_MEASURE);
-        p_treble_r = fftw_plan_dft_r2c_1d(audio.FFTtreblebufferSize, audio.in_treble_r,
-                                          out_treble_r, FFTW_MEASURE);
-
-        debug("got buffer size: %d, %d, %d", audio.FFTbassbufferSize, audio.FFTmidbufferSize,
-              audio.FFTtreblebufferSize);
+        debug("got buffer size: %d, %d, %d", audio.FFTbufferSize);
 
         reset_output_buffers(&audio);
 
@@ -535,20 +465,11 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             exit(EXIT_FAILURE); // Can't happen.
         }
 
-        if (p.upper_cut_off > audio.rate / 2) {
-            cleanup();
-            fprintf(stderr, "higher cuttoff frequency can't be higher than sample rate / 2");
-            exit(EXIT_FAILURE);
-        }
-
         bool reloadConf = false;
 
         while (!reloadConf) { // jumping back to this loop means that you resized the screen
             for (n = 0; n < 256; n++) {
-                bars_last[n] = 0;
                 previous_frame[n] = 0;
-                fall[n] = 0;
-                bars_peak[n] = 0;
                 bars_mem[n] = 0;
                 bars[n] = 0;
             }
@@ -619,7 +540,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     p.autobars = 1;
             }
 
-            // getting original numbers of bars incase of resize
+            // getting original numbers of bars in case of resize
             if (p.autobars == 1) {
                 number_of_bars = (width + p.bar_spacing) / (p.bar_width + p.bar_spacing);
                 // if (p.bar_spacing != 0) number_of_bars = (width - number_of_bars * p.bar_spacing
@@ -630,137 +551,37 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             if (number_of_bars < 1)
                 number_of_bars = 1; // must have at least 1 bars
             if (number_of_bars > 256)
-                number_of_bars = 256; // cant have more than 256 bars
+                number_of_bars = 256; // can't have more than 256 bars
 
-            if (p.stereo) { // stereo must have even numbers of bars
-                if (number_of_bars % 2 != 0)
-                    number_of_bars--;
-            }
+            // stereo must have even numbers of bars
+            if (number_of_bars % 2 != 0)
+                number_of_bars--;
 
-            // checks if there is stil extra room, will use this to center
+            // checks if there is still extra room, will use this to center
             rest = (width - number_of_bars * p.bar_width - number_of_bars * p.bar_spacing +
                     p.bar_spacing) /
                    2;
             if (rest < 0)
                 rest = 0;
 
-            // process [smoothing]: calculate gravity
-            g = p.gravity * ((float)height / 2160) * pow((60 / (float)p.framerate), 2.5);
-
-            // calculate integral value, must be reduced with height
-            double integral = p.integral;
-            if (height > 320)
-                integral = p.integral * 1 / sqrt((log10((float)height / 10)));
-
 #ifndef NDEBUG
             debug("height: %d width: %d bars:%d bar width: %d rest: %d\n", height, width,
                   number_of_bars, p.bar_width, rest);
 #endif
 
-            if (p.stereo)
-                number_of_bars =
-                    number_of_bars / 2; // in stereo only half number of number_of_bars per channel
+            number_of_bars =
+                number_of_bars / 2; // in stereo only half number of number_of_bars per channel
 
-            if (p.userEQ_enabled && (number_of_bars > 0)) {
-                userEQ_keys_to_bars_ratio =
-                    (double)(((double)p.userEQ_keys) / ((double)number_of_bars));
-            }
-
-            // calculate frequency constant (used to distribute bars across the frequency band)
-            double frequency_constant = log10((float)p.lower_cut_off / (float)p.upper_cut_off) /
-                                        (1 / ((float)number_of_bars + 1) - 1);
-
-            // process: calculate cutoff frequencies and eq
-            int bass_cut_off_bar = -1;
-            int treble_cut_off_bar = -1;
-            bool first_bar = false;
-            int first_treble_bar = 0;
+            // process
+            double peak_dB = 0;
 
             for (n = 0; n < number_of_bars + 1; n++) {
-                double bar_distribution_coefficient = frequency_constant * (-1);
-                bar_distribution_coefficient +=
-                    ((float)n + 1) / ((float)number_of_bars + 1) * frequency_constant;
-                cut_off_frequency[n] = p.upper_cut_off * pow(10, bar_distribution_coefficient);
-                relative_cut_off[n] = cut_off_frequency[n] / (audio.rate / 2);
-                // remember nyquist!, per my calculations this should be rate/2
-                // and nyquist freq in M/2 but testing shows it is not...
-                // or maybe the nq freq is in M/4
-
-                eq[n] = pow(cut_off_frequency[n], 1);
-                eq[n] *= (float)height / pow(2, 28);
-                if (p.userEQ_enabled)
-                    eq[n] *= p.userEQ[(int)floor(((double)n) * userEQ_keys_to_bars_ratio)];
-
-                eq[n] /= log2(audio.FFTbassbufferSize);
-
-                if (cut_off_frequency[n] < bass_cut_off) {
-                    // BASS
-                    FFTbuffer_lower_cut_off[n] =
-                        relative_cut_off[n] * (audio.FFTbassbufferSize / 2) + 1;
-                    bass_cut_off_bar++;
-                    treble_cut_off_bar++;
-
-                    eq[n] *= log2(audio.FFTbassbufferSize);
-                } else if (cut_off_frequency[n] > bass_cut_off &&
-                           cut_off_frequency[n] < treble_cut_off) {
-                    // MID
-                    FFTbuffer_lower_cut_off[n] =
-                        relative_cut_off[n] * (audio.FFTmidbufferSize / 2) + 1;
-                    treble_cut_off_bar++;
-                    if ((treble_cut_off_bar - bass_cut_off_bar) == 1) {
-                        first_bar = true;
-                        FFTbuffer_upper_cut_off[n - 1] =
-                            relative_cut_off[n] * (audio.FFTbassbufferSize / 2);
-                        if (FFTbuffer_upper_cut_off[n - 1] < FFTbuffer_lower_cut_off[n - 1])
-                            FFTbuffer_upper_cut_off[n - 1] = FFTbuffer_lower_cut_off[n - 1];
-                    } else {
-                        first_bar = false;
-                    }
-
-                    eq[n] *= log2(audio.FFTmidbufferSize);
-                } else {
-                    // TREBLE
-                    FFTbuffer_lower_cut_off[n] =
-                        relative_cut_off[n] * (audio.FFTtreblebufferSize / 2) + 1;
-                    first_treble_bar++;
-                    if (first_treble_bar == 1) {
-                        first_bar = true;
-                        FFTbuffer_upper_cut_off[n - 1] =
-                            relative_cut_off[n] * (audio.FFTmidbufferSize / 2);
-                        if (FFTbuffer_upper_cut_off[n - 1] < FFTbuffer_lower_cut_off[n - 1])
-                            FFTbuffer_upper_cut_off[n - 1] = FFTbuffer_lower_cut_off[n - 1];
-                    } else {
-                        first_bar = false;
-                    }
-
-                    eq[n] *= log2(audio.FFTtreblebufferSize);
-                }
-
-                if (n != 0 && !first_bar) {
-                    FFTbuffer_upper_cut_off[n - 1] = FFTbuffer_lower_cut_off[n] - 1;
-
-                    // pushing the spectrum up if the exponential function gets "clumped" in the
-                    // bass
-                    if (FFTbuffer_lower_cut_off[n] <= FFTbuffer_lower_cut_off[n - 1])
-                        FFTbuffer_lower_cut_off[n] = FFTbuffer_lower_cut_off[n - 1] + 1;
-                    FFTbuffer_upper_cut_off[n - 1] = FFTbuffer_lower_cut_off[n] - 1;
-                }
-
-#ifndef NDEBUG
-                initscr();
-                curs_set(0);
-                timeout(0);
-                if (n != 0) {
-                    mvprintw(n, 0, "%d: %f -> %f (%d -> %d) bass: %d, treble:%d \n", n,
-                             cut_off_frequency[n - 1], cut_off_frequency[n],
-                             FFTbuffer_lower_cut_off[n - 1], FFTbuffer_upper_cut_off[n - 1],
-                             bass_cut_off_bar, treble_cut_off_bar);
-                }
-#endif
+                //double bar_distribution_coefficient = frequency_constant * (-1);
+                //bar_distribution_coefficient +=
+                    //((float)n + 1) / ((float)number_of_bars + 1) * frequency_constant;
             }
 
-            if (p.stereo)
-                number_of_bars = number_of_bars * 2;
+            number_of_bars = number_of_bars * 2;
 
             bool resizeTerminal = false;
             fcntl(0, F_SETFL, O_NONBLOCK);
@@ -769,7 +590,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 req.tv_sec = 1 / (float)p.framerate;
             } else {
                 req.tv_sec = 0;
-                req.tv_nsec = (1 / (float)p.framerate) * 1e9;
+                req.tv_nsec = 1e9 / (float)p.framerate;
             }
 
             while (!resizeTerminal) {
@@ -784,10 +605,10 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
                 switch (ch) {
                 case 65: // key up
-                    p.sens = p.sens * 1.05;
+                    p.noise_floor = p.noise_floor + 5.0;
                     break;
                 case 66: // key down
-                    p.sens = p.sens * 0.95;
+                    p.noise_floor = p.noise_floor - 5.0;
                     break;
                 case 68: // key right
                     p.bar_width++;
@@ -804,14 +625,14 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 case 'c': // reload colors
                     reload_colors = 1;
                     break;
-                case 'f': // change forground color
+                case 'f': // change foreground color
                     if (p.col < 7)
                         p.col++;
                     else
                         p.col = 0;
                     resizeTerminal = true;
                     break;
-                case 'b': // change backround color
+                case 'b': // change background color
                     if (p.bgcol < 7)
                         p.bgcol++;
                     else
@@ -855,12 +676,14 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 // process: check if input is present
                 silence = true;
 
-                for (n = 0; n < audio.FFTbassbufferSize; n++) {
-                    if (audio.in_bass_l[n] || audio.in_bass_r[n]) {
+                for (n = 0; n < audio.FFTbufferSize; n++) {
+                    if (audio.in_l[n] || audio.in_r[n]) {
                         silence = false;
                         break;
                     }
                 }
+
+                window(&audio);
 
                 if (silence)
                     sleep++;
@@ -871,36 +694,22 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 if (sleep < p.framerate * 5) {
 
                     // process: execute FFT and sort frequency bands
-                    if (p.stereo) {
-                        fftw_execute(p_bass_l);
-                        fftw_execute(p_bass_r);
-                        fftw_execute(p_mid_l);
-                        fftw_execute(p_mid_r);
-                        fftw_execute(p_treble_l);
-                        fftw_execute(p_treble_r);
+                    fftw_execute(p_l);
+                    fftw_execute(p_r);
 
-                        bars_left = separate_freq_bands(
-                            audio.FFTbassbufferSize, out_bass_l, audio.FFTmidbufferSize, out_mid_l,
-                            audio.FFTtreblebufferSize, out_treble_l, bass_cut_off_bar,
-                            treble_cut_off_bar, number_of_bars / 2, FFTbuffer_lower_cut_off,
-                            FFTbuffer_upper_cut_off, eq, LEFT_CHANNEL, p.sens, p.ignore);
+                    bars_left = make_bins(
+                        audio.FFTbufferSize,
+                        audio.rate,
+                        out_l,
+                        number_of_bars / 2,
+                        LEFT_CHANNEL);
 
-                        bars_right = separate_freq_bands(
-                            audio.FFTbassbufferSize, out_bass_r, audio.FFTmidbufferSize, out_mid_r,
-                            audio.FFTtreblebufferSize, out_treble_r, bass_cut_off_bar,
-                            treble_cut_off_bar, number_of_bars / 2, FFTbuffer_lower_cut_off,
-                            FFTbuffer_upper_cut_off, eq, RIGHT_CHANNEL, p.sens, p.ignore);
-
-                    } else {
-                        fftw_execute(p_bass_l);
-                        fftw_execute(p_mid_l);
-                        fftw_execute(p_treble_l);
-                        bars_mono = separate_freq_bands(
-                            audio.FFTbassbufferSize, out_bass_l, audio.FFTmidbufferSize, out_mid_l,
-                            audio.FFTtreblebufferSize, out_treble_l, bass_cut_off_bar,
-                            treble_cut_off_bar, number_of_bars, FFTbuffer_lower_cut_off,
-                            FFTbuffer_upper_cut_off, eq, LEFT_CHANNEL, p.sens, p.ignore);
-                    }
+                    bars_right = make_bins(
+                        audio.FFTbufferSize,
+                        audio.rate,
+                        out_r,
+                        number_of_bars / 2,
+                        RIGHT_CHANNEL);
 
                 } else { //**if in sleep mode wait and continue**//
 #ifndef NDEBUG
@@ -913,71 +722,28 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     continue;
                 }
 
-                // process [filter]
-
-                if (p.monstercat) {
-                    if (p.stereo) {
-                        bars_left =
-                            monstercat_filter(bars_left, number_of_bars / 2, p.waves, p.monstercat);
-                        bars_right = monstercat_filter(bars_right, number_of_bars / 2, p.waves,
-                                                       p.monstercat);
-                    } else {
-                        bars_mono =
-                            monstercat_filter(bars_mono, number_of_bars, p.waves, p.monstercat);
-                    }
-                }
-
-                // processing signal
-
-                bool senselow = true;
-
+                double dB = 0;
+                peak_dB *= 0.9999;
+                // processing bars, after fft: TODO: move these to a new function     !!!
                 for (n = 0; n < number_of_bars; n++) {
-                    // mirroring stereo channels
-                    if (p.stereo) {
-                        if (n < number_of_bars / 2) {
-                            bars[n] = bars_left[number_of_bars / 2 - n - 1];
-                        } else {
-                            bars[n] = bars_right[n - number_of_bars / 2];
-                        }
-
+                    // stereo channels mirrored
+                    if (n < number_of_bars / 2) {
+                        bars[n] = bars_left[number_of_bars / 2 - n - 1];
                     } else {
-                        bars[n] = bars_mono[n];
+                        bars[n] = bars_right[n - number_of_bars / 2];
                     }
 
-                    // process [smoothing]: falloff
-                    if (g > 0) {
-                        if (bars[n] < bars_last[n]) {
-                            bars[n] = bars_peak[n] - (g * fall[n] * fall[n]);
-                            if (bars[n] < 0)
-                                bars[n] = 0;
-                            fall[n]++;
-                        } else {
-                            bars_peak[n] = bars[n];
-                            fall[n] = 0;
-                        }
+                    // freq domain smoothing: alpha decay
+                    // may replace with Welch averaging or KS averaging
+                    bars[n] = p.alpha * bars_mem[n] + (1.0 - p.alpha) * bars[n];
+                    bars_mem[n] = bars[n];
 
-                        bars_last[n] = bars[n];
-                    }
+                    // bar power in [0, 1] -> [peak_dB, noise_floor]dB -> bar height
+                    dB = 20 * log10(bars[n]);
+                    peak_dB = fmax(dB, peak_dB);
+                    bars[n] = 0.9 * height * fmax((-dB + peak_dB) / p.noise_floor + 1.0, 0.0);
 
-                    // process [smoothing]: integral
-                    if (p.integral > 0) {
-                        bars[n] = bars_mem[n] * integral + bars[n];
-                        bars_mem[n] = bars[n];
-
-                        int diff = height - bars[n];
-                        if (diff < 0)
-                            diff = 0;
-                        double div = 1 / (diff + 1);
-                        // bars[n] = bars[n] - pow(div, 10) * (height + 1);
-                        bars_mem[n] = bars_mem[n] * (1 - div / 20);
-                    }
 #ifndef NDEBUG
-                    mvprintw(n, 0, "%d: f:%f->%f (%d->%d), eq:\
-						%15e, peak:%d \n",
-                             n, cut_off_frequency[n], cut_off_frequency[n + 1],
-                             FFTbuffer_lower_cut_off[n], FFTbuffer_upper_cut_off[n], eq[n],
-                             bars[n]);
-
                     if (bars[n] < minvalue) {
                         minvalue = bars[n];
                         debug("min value: %d\n", minvalue); // checking maxvalue 10000
@@ -996,20 +762,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     if (output_mode != OUTPUT_RAW && bars[n] < 1)
                         bars[n] = 1;
 
-                    // automatic sense adjustment
-                    if (p.autosens) {
-                        if (bars[n] > height && senselow) {
-                            p.sens = p.sens * 0.98;
-                            senselow = false;
-                        }
-                    }
                 }
 
-                if (p.autosens && !silence && senselow)
-                    p.sens = p.sens * 1.001;
-
 #ifndef NDEBUG
-                mvprintw(n + 1, 0, "sensitivity %.10e", p.sens);
                 mvprintw(n + 2, 0, "min value: %d\n", minvalue); // checking maxvalue 10000
                 mvprintw(n + 3, 0, "max value: %d\n", maxvalue); // checking maxvalue 10000
 #endif
@@ -1064,31 +819,15 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         audio.terminate = 1;
         pthread_join(p_thread, NULL);
 
-        if (p.userEQ_enabled)
-            free(p.userEQ);
         if (sourceIsAuto)
             free(audio.source);
 
-        fftw_free(audio.in_bass_r);
-        fftw_free(audio.in_bass_l);
-        fftw_free(out_bass_r);
-        fftw_free(out_bass_l);
-        fftw_destroy_plan(p_bass_l);
-        fftw_destroy_plan(p_bass_r);
-
-        fftw_free(audio.in_mid_r);
-        fftw_free(audio.in_mid_l);
-        fftw_free(out_mid_r);
-        fftw_free(out_mid_l);
-        fftw_destroy_plan(p_mid_l);
-        fftw_destroy_plan(p_mid_r);
-
-        fftw_free(audio.in_treble_r);
-        fftw_free(audio.in_treble_l);
-        fftw_free(out_treble_r);
-        fftw_free(out_treble_l);
-        fftw_destroy_plan(p_treble_l);
-        fftw_destroy_plan(p_treble_r);
+        fftw_free(audio.in_r);
+        fftw_free(audio.in_l);
+        fftw_free(out_r);
+        fftw_free(out_l);
+        fftw_destroy_plan(p_l);
+        fftw_destroy_plan(p_r);
 
         cleanup();
 

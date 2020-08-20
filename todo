@@ -1,11 +1,10 @@
 TODO
 ----
 
+- [ ] fix loading correct config file
+- [ ] configurable windowing pre-fft
+- [ ] fft averaging with overlapping windows (Welch method)
+- [ ] write directly to framebuffer
+- [ ] remove curses / tty output code
 
-* config option print cut-off frequencies on x-axis
-* config option different color for different threshold amplitude
-* possibility to save settings to config file
-* openGL
-* plug-in api
-* new demo video
-* JACK support
+

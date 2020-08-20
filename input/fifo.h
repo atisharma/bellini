@@ -1,4 +1,4 @@
-// header files for fifo, part of cava
+// header files for fifo, part of champagne
 
 #pragma once
 

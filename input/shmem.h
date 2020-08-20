@@ -1,4 +1,4 @@
-// header file for shmem, part of cava.
+// header file for shmem, part of champagne.
 
 #pragma once
 

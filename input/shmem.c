@@ -9,7 +9,7 @@ typedef unsigned int u32_t;
 typedef short s16_t;
 int rc;
 
-// See issue #375
+// See cava issue #375
 // Hard-coded in squeezelite's output_vis.c, but
 // this should be the same as mmap_area->buf_size
 // if you were to dynamically allocate.
@@ -57,8 +57,9 @@ void *input_shmem(void *data) {
         // audio rate may change between songs (e.g. 44.1kHz to 96kHz)
         audio->rate = mmap_area->rate;
         buf_frames = mmap_area->buf_size / 2;
-        // reread after the whole buffer has changed
-        req.tv_nsec = (1000000 / mmap_area->rate) * buf_frames;
+        audio->index = (audio->FFTbufferSize - mmap_area->buf_index / 2) % audio->FFTbufferSize;
+        // reread 4x each buffer replacement
+        req.tv_nsec = (2.5e5 / mmap_area->rate) * buf_frames;
         if (mmap_area->running) {
             // Frames are written by squeezelite to the buffer array starting from
             // buffer[buf_index + 1], looping around the whole array.
