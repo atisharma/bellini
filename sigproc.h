@@ -1,5 +1,9 @@
 #pragma once
 
+#define LEFT_CHANNEL 1
+#define RIGHT_CHANNEL 2
+
+
 int window(int k, void *data);
 
 int *make_bins(int FFTbufferSize,

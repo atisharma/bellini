@@ -12,6 +12,9 @@
 #include <fftw3.h>
 #include <sys/types.h>
 
+#include "input/common.h"
+#include "sigproc.h"
+
 #include "debug.h"
 #include "util.h"
 
