@@ -1,3 +1,22 @@
+/*
+ * TODO:
+ *
+ *  [ ] fix loading correct config file
+ *  [x] window(signal -> signal)                # time domain windowing (ZS)
+ *  [x] window(signal -> signal)                # other window approaches
+ *  [x] transform(signal -> power_spectrum)     # apply fft
+ *  [ ] move transform to sigproc.c
+ *  [x] bin(power_spectrum -> histogram)        # gather fft in buckets (bars)
+ *  [ ] preplot(fft -> dB, freqs -> dB)         # turn fft data into plot data
+ *  [ ] render(image -> fb)                     # write array directly to framebuffer
+ *  [ ] plot(data -> image)                     # render plot data to array
+ *  [ ] remove ncurses output
+ *  [ ] remove noncurses output
+ *  [ ] remove raw output?
+ *  [ ] remove bar style output
+ *  [ ] remove curses / tty output code
+ */
+
 #include <locale.h>
 
 #ifdef HAVE_ALLOCA_H
@@ -46,6 +65,8 @@
 #include "input/pulse.h"
 #include "input/shmem.h"
 #include "input/sndio.h"
+
+#include "sigproc.h"
 
 #include "config.h"
 
@@ -128,96 +149,6 @@ static bool directory_exists(const char *path) {
 
 #endif
 
-
-// functions to write:
-//      [x] window(signal -> signal)                # time domain windowing
-//      [x] transform(signal -> power_spectrum)     # apply fft
-//      [x] bin(power_spectrum -> histogram)        # gather fft in buckets
-//      [ ] plot(histogram -> display)              # plot dB vs freq
-
-// apply window in-place on audio data
-int window(int k, void *data) {
-    struct audio_data *audio = (struct audio_data *)data;
-
-    // copy to double array?
-
-    // detrend
-    double l_start = audio->in_l[0];
-    double l_end = audio->in_l[audio->FFTbufferSize - 1];
-    double r_start = audio->in_r[0];
-    double r_end = audio->in_r[audio->FFTbufferSize - 1];
-    for (int i = 0; i < audio->FFTbufferSize; i++) {
-        audio->in_l[i] = (audio->in_l[i] - l_start) / (l_end - l_start);
-        audio->in_r[i] = (audio->in_r[i] - r_start) / (r_end - r_start);
-    }
-    
-    // window
-
-    // Kolmogorov-Zurbenko (k, m=3) filter: repeated average of buffers
-    for (int ki = 0; ki < k; ki++) {
-        for (int i = 1; i < audio->FFTbufferSize; i++) {    // careful with bounds checking for m
-            audio->in_l[i] = (audio->in_l[i-1] + audio->in_l[i] + audio->in_l[i+1]) / 3.0;
-            audio->in_r[i] = (audio->in_r[i-1] + audio->in_r[i] + audio->in_r[i+1]) / 3.0;
-        }
-    }
-return 0;
-}
-
-
-// bin together power spectrum in dB
-int *make_bins(int FFTbufferSize,
-        unsigned int rate,
-        fftw_complex out[(FFTbufferSize / 2 + 1)],
-        int number_of_bins,
-        int channel) {
-    int n, i;
-    double power[257];
-    int L = FFTbufferSize / 2 + 1;
-    static int bins_left[256];
-    static int bins_right[256];
-    double y[L];
-    double w = 1.0 / (FFTbufferSize * rate);
-
-    // cutoff frequencies, three decades apart
-    double lower_cutoff = 20.0;
-    double upper_cutoff = 20000.0;
-
-    // get total signal power in each bin,
-    // and space bins logarithmically.
-    // freq[i] = i * rate / FFTbufferSize;
-    // so log[i](i) = log(freq[i] * FFTbufferSize / rate);
-    // and log[i] equally spaced over bins
-    int imin = floor(lower_cutoff * FFTbufferSize / rate);
-    int imax = fmin(floor(upper_cutoff * FFTbufferSize / rate), (FFTbufferSize / 2 + 1));
-
-    for (n = 0; n < 257; n++)
-        power[n] = 0.0;
-
-    for (i = imin; i < imax; i++) {
-        // nearest bin
-        y[i] = out[i][0] * out[i][0] + out[i][1] * out[i][1];       // signal power
-        //n = floor(number_of_bins * (i - imin) / (imax - imin));     // linear bin spacing
-        n = number_of_bins * (log(i) - log(imin)) / log(imax / imin);     // log bin spacing
-        // integrating over bins, multiply by 1/f for log f ordinate
-        power[n] += y[i] * w * imax / i;
-    }
-    //power[n] /= (double)rate * L;
-    // normalise for FFT size, half-sided fft, and max value of 2 ** 16 -> 0dB
-    //power[n] *= 4.0 / FFTbufferSize; 
-    // printf("%d power o: %f : %f * k: %f = f: %f\n", o, power[o], temp);
-
-    for (n = 0; n < number_of_bins; n++) {
-        if (channel == LEFT_CHANNEL)
-            bins_left[n] = power[n];
-        else
-            bins_right[n] = power[n];
-    }
-
-    if (channel == LEFT_CHANNEL)
-        return bins_left;
-    else
-        return bins_right;
-}
 
 // general: entry point
 int main(int argc, char **argv) {
@@ -692,7 +623,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 else
                     sleep = 0;
 
-                // process: if input was present for the last 5 seconds apply FFT to it
+                // process: if input was present for the last 5 frames apply FFT to it
                 if (sleep < p.framerate * 5) {
 
                     // process: execute FFT and sort frequency bands
@@ -715,18 +646,19 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
                 } else { //**if in sleep mode wait and continue**//
 #ifndef NDEBUG
-                    printw("no sound detected for 5 sec, going to sleep mode\n");
+                    printw("no sound detected for 5 frames, going to sleep mode\n");
 #endif
                     // wait 0.1 sec, then check sound again.
                     sleep_mode_timer.tv_sec = 0;
-                    sleep_mode_timer.tv_nsec = 100000000;
+                    sleep_mode_timer.tv_nsec = 1e8;
                     nanosleep(&sleep_mode_timer, NULL);
                     continue;
                 }
 
                 double dB = 0;
                 peak_dB *= 0.9999;
-                // processing bars, after fft: TODO: move these to a new function     !!!
+                // processing bars, after fft:
+                // TODO: move these to a new function in sigproc.c     !!!
                 for (n = 0; n < number_of_bars; n++) {
                     // stereo channels mirrored
                     if (n < number_of_bars / 2) {
@@ -814,7 +746,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
         } // reloading config
         req.tv_sec = 0;
-        req.tv_nsec = 100; // waiting some time to make sure audio is ready
+        req.tv_nsec = 1000; // waiting some time to make sure audio is ready
         nanosleep(&req, NULL);
 
         //**telling audio thread to terminate**//

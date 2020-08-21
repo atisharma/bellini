@@ -33,6 +33,8 @@ void *input_shmem(void *data) {
     int mmap_count = sizeof(vis_t);
     int buf_frames;
     struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
+    // 0.1 long sleep when not playing to lower CPU usage
+    struct timespec req_silence = {.tv_sec = 0, .tv_nsec = 1e8};
 
     s16_t silence_buffer[VIS_BUF_SIZE];
     for (int i = 0; i < VIS_BUF_SIZE; i++)
@@ -58,19 +60,14 @@ void *input_shmem(void *data) {
         audio->rate = mmap_area->rate;
         buf_frames = mmap_area->buf_size / 2;
         audio->index = (audio->FFTbufferSize - mmap_area->buf_index / 2) % audio->FFTbufferSize;
-        // reread 4x each buffer replacement
-        req.tv_nsec = (2.5e5 / mmap_area->rate) * buf_frames;
+        // reread 2x each buffer replacement (overlapping windows)
+        req.tv_nsec = 5e5 * buf_frames / mmap_area->rate;
         if (mmap_area->running) {
-            // Frames are written by squeezelite to the buffer array starting from
-            // buffer[buf_index + 1], looping around the whole array.
-            // Thus, the starting position only affects the phase spectrum of the
-            // fft, and not the power spectrum, so we can just read in the
-            // whole buffer.
             write_to_fftw_input_buffers(mmap_area->buffer, buf_frames, audio);
             nanosleep(&req, NULL);
         } else {
             write_to_fftw_input_buffers(silence_buffer, buf_frames, audio);
-            nanosleep(&req, NULL);
+            nanosleep(&req_silence, NULL);
         }
     }
 
