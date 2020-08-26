@@ -1,20 +1,21 @@
 /*
  * TODO:
  *
- *  [ ] fix loading correct config file
+ *  [x] fix loading correct config file
  *  [x] window(signal -> signal)                # time domain windowing (ZS)
  *  [x] window(signal -> signal)                # other window approaches
  *  [x] transform(signal -> power_spectrum)     # apply fft
  *  [ ] move transform to sigproc.c
  *  [x] bin(power_spectrum -> histogram)        # gather fft in buckets (bars)
- *  [ ] preplot(fft -> dB, freqs -> dB)         # turn fft data into plot data
- *  [ ] render(image -> fb)                     # write array directly to framebuffer
- *  [ ] plot(data -> image)                     # render plot data to array
- *  [ ] remove ncurses output
- *  [ ] remove noncurses output
+ *  [x] preplot(fft -> dB, freqs -> dB)         # turn fft data into plot data
+ *  [x] render(image -> fb)                     # write array directly to framebuffer
+ *  [x] plot(data -> image)                     # render plot data to array
+ *  [ ] remove ncurses output?
+ *  [ ] remove noncurses output?
  *  [ ] remove raw output?
  *  [ ] remove bar style output
  *  [ ] remove curses / tty output code
+ *  [ ] plot raw audio signal (option)
  */
 
 #include <locale.h>
@@ -66,9 +67,11 @@
 #include "input/shmem.h"
 #include "input/sndio.h"
 
-#include "sigproc.h"
-
 #include "config.h"
+
+#include "sigproc.h"
+#include "output/framebuffer.h"
+#include "output/fbplot.h"
 
 #ifdef __GNUC__
 // curses.h or other sources may already define
@@ -156,10 +159,10 @@ int main(int argc, char **argv) {
     // general: define variables
     pthread_t p_thread;
     int thr_id GCC_UNUSED;
-    int bars[256];
+    int bars[8192];
     int *bars_left, *bars_right;
-    int bars_mem[256];
-    int previous_frame[256];
+    int bars_mem[8192];
+    int previous_frame[8192];
     int sleep = 0;
     int n, height, lines, width, c, rest, inAtty, fp, fptest, rc;
     bool silence;
@@ -192,9 +195,55 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     char ch = '\0';
     int number_of_bars = 25;
     int sourceIsAuto = 1;
+    double peak_dB = 0;
+    double dB = 0;
 
     struct audio_data audio;
     memset(&audio, 0, sizeof(audio));
+
+    // framebuffer plotting
+    buffer buffer_final;
+    bf_init(&buffer_final);
+    bf_clear(buffer_final);
+    buffer buffer_l;
+    bf_init(&buffer_l);
+    bf_clear(buffer_l);
+    buffer buffer_r;
+    bf_init(&buffer_r);
+    bf_clear(buffer_r);
+    axes ax = {};
+    ax.screen_x = 0;
+    ax.screen_y = 0;
+    ax.screen_w = FRAMEBUFFER_WIDTH;
+    ax.screen_h = FRAMEBUFFER_HEIGHT;
+    ax.x_min = 0;      // 20 * log10(20)
+    ax.x_max = FRAMEBUFFER_WIDTH;      // 20 * log10(20000)
+    ax.y_min = -80;    // dB
+    ax.y_max = 0;
+
+    /*
+    foreground = '#56ff00'		# P1
+    foreground = '#8cff00'		# P2
+    foreground = '#ffb700' 	        # P3
+    foreground = '#d2ff00' 	        # P4
+    foreground = '#3300ff' 	        # P5
+    foreground = '#007bff' 	        # P6
+    foreground = '#b9ff00' 	        # P7
+    foreground = '#007bff'		# P11
+    foreground = '#ffdc00'		# P12
+    foreground = '#ff2100'		# P13
+    foreground = '#00ff61'		# P15
+    foreground = '#610061'		# P16
+    foreground = '#00ff61'		# P17
+    foreground = '#92ff00'		# P18
+    foreground = '#ffdf00'		# P19
+    foreground = '#b3ff00'		# P20
+    */
+    rgba plot_c_l   = {0xFF, 0xD2, 0x00, 0x00};
+    rgba plot_c_r   = {0x00, 0xFF, 0x61, 0x00};
+    //rgba plot_c_a   = {0x33, 0x33, 0x33, 0x33};
+    //rgba plot_c_ax  = {0x00, 0xFF, 0x00, 0x00};
+    //rgba fade_c     = {0x55, 0x55, 0x55, 0x00};
 
 #ifndef NDEBUG
     int maxvalue = 0;
@@ -401,13 +450,19 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         bool reloadConf = false;
 
         while (!reloadConf) { // jumping back to this loop means that you resized the screen
-            for (n = 0; n < 256; n++) {
+            for (n = 0; n < 8192; n++) {
                 previous_frame[n] = 0;
                 bars_mem[n] = 0;
                 bars[n] = 0;
             }
 
             switch (output_mode) {
+            case OUTPUT_FRAMEBUFFER:
+                fb_setup();
+                fb_clear();
+                width = ax.screen_w;
+                height = ax.screen_h;
+                break;
 #ifdef NCURSES
             // output: start ncurses mode
             case OUTPUT_NCURSES:
@@ -466,55 +521,48 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 exit(EXIT_FAILURE); // Can't happen.
             }
 
-            // handle for user setting too many bars
-            if (p.fixedbars) {
-                p.autobars = 0;
-                if (p.fixedbars * p.bar_width + p.fixedbars * p.bar_spacing - p.bar_spacing > width)
-                    p.autobars = 1;
-            }
+            if (output_mode == OUTPUT_FRAMEBUFFER) {
+                // too many bins is too noisy
+                number_of_bars = ax.screen_w;
+            } else {
 
-            // getting original numbers of bars in case of resize
-            if (p.autobars == 1) {
-                number_of_bars = (width + p.bar_spacing) / (p.bar_width + p.bar_spacing);
-                // if (p.bar_spacing != 0) number_of_bars = (width - number_of_bars * p.bar_spacing
-                // + p.bar_spacing) / bar_width;
-            } else
-                number_of_bars = p.fixedbars;
+                // handle for user setting too many bars
+                if (p.fixedbars) {
+                    p.autobars = 0;
+                    if (p.fixedbars * p.bar_width + p.fixedbars * p.bar_spacing - p.bar_spacing > width)
+                        p.autobars = 1;
+                }
 
-            if (number_of_bars < 1)
-                number_of_bars = 1; // must have at least 1 bars
-            if (number_of_bars > 256)
-                number_of_bars = 256; // can't have more than 256 bars
+                // getting original numbers of bars in case of resize
+                if (p.autobars == 1) {
+                    number_of_bars = (width + p.bar_spacing) / (p.bar_width + p.bar_spacing);
+                    // if (p.bar_spacing != 0) number_of_bars = (width - number_of_bars * p.bar_spacing
+                    // + p.bar_spacing) / bar_width;
+                } else
+                    number_of_bars = p.fixedbars;
 
-            // stereo must have even numbers of bars
-            if (number_of_bars % 2 != 0)
-                number_of_bars--;
+                if (number_of_bars < 1)
+                    number_of_bars = 1; // must have at least 1 bars
+                if (number_of_bars > 256)
+                    number_of_bars = 256; // can't have more than 256 bars
 
-            // checks if there is still extra room, will use this to center
-            rest = (width - number_of_bars * p.bar_width - number_of_bars * p.bar_spacing +
-                    p.bar_spacing) /
-                   2;
-            if (rest < 0)
-                rest = 0;
+                // stereo must have even numbers of bars
+                if (number_of_bars % 2 != 0)
+                    number_of_bars--;
+
+                // checks if there is still extra room, will use this to center
+                rest = (width - number_of_bars * p.bar_width - number_of_bars * p.bar_spacing +
+                        p.bar_spacing) /
+                       2;
+                if (rest < 0)
+                    rest = 0;
 
 #ifndef NDEBUG
-            debug("height: %d width: %d bars:%d bar width: %d rest: %d\n", height, width,
-                  number_of_bars, p.bar_width, rest);
+                debug("height: %d width: %d bars:%d bar width: %d rest: %d\n", height, width,
+                      number_of_bars, p.bar_width, rest);
 #endif
 
-            number_of_bars =
-                number_of_bars / 2; // in stereo only half number of number_of_bars per channel
-
-            // process
-            double peak_dB = 0;
-
-            for (n = 0; n < number_of_bars + 1; n++) {
-                //double bar_distribution_coefficient = frequency_constant * (-1);
-                //bar_distribution_coefficient +=
-                    //((float)n + 1) / ((float)number_of_bars + 1) * frequency_constant;
             }
-
-            number_of_bars = number_of_bars * 2;
 
             bool resizeTerminal = false;
             fcntl(0, F_SETFL, O_NONBLOCK);
@@ -655,8 +703,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     continue;
                 }
 
-                double dB = 0;
-                peak_dB *= 0.9999;
+
+                //peak_dB *= 0.9999;
                 // processing bars, after fft:
                 // TODO: move these to a new function in sigproc.c     !!!
                 for (n = 0; n < number_of_bars; n++) {
@@ -675,7 +723,14 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     // bar power in [0, 1] -> [peak_dB, noise_floor]dB -> bar height
                     dB = 20 * log10(bars[n]);
                     peak_dB = fmax(dB, peak_dB);
-                    bars[n] = 0.9 * height * fmax((-dB + peak_dB) / p.noise_floor + 1.0, 0.0);
+                    ax.y_max = peak_dB;
+                    ax.y_min = p.noise_floor;
+                    if (output_mode != OUTPUT_FRAMEBUFFER) {
+                        bars[n] = 0.9 * height * fmax((-dB + peak_dB) / p.noise_floor + 1.0, 0.0);
+                    } else {
+                        bars[n] = fmax((-dB + peak_dB) / p.noise_floor + 1.0, 0.0);
+                        //printf("peak dB: %10.3f, dB: %10.3f\r", peak_dB, dB);
+                    }
 
 #ifndef NDEBUG
                     if (bars[n] < minvalue) {
@@ -693,7 +748,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 #endif
 
                     // zero values causes divided by zero segfault (if not raw)
-                    if (output_mode != OUTPUT_RAW && bars[n] < 1)
+                    if (((output_mode != OUTPUT_FRAMEBUFFER) || (output_mode != OUTPUT_RAW)) && bars[n] < 1)
                         bars[n] = 1;
 
                 }
@@ -706,6 +761,20 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 // output: draw processed input
 #ifdef NDEBUG
                 switch (output_mode) {
+                case OUTPUT_FRAMEBUFFER:
+                    //bf_tinge(buffer_final, fade_c, 0.8);
+                    bf_shade(buffer_final, p.alpha);
+                    //bf_clear(buffer_l);
+                    //bf_clear(buffer_r);
+                    bf_plot_data(buffer_final, ax, bars_right, number_of_bars/2, plot_c_r);
+                    bf_plot_data(buffer_final, ax, bars_left, number_of_bars/2, plot_c_l);
+                    //bf_blend(buffer_l, buffer_r, 0.5);
+                    //bf_superpose(buffer_final, buffer_l);
+                    //bf_copy(buffer_final, buffer_l);
+                    //bf_plot_axes(buffer_final, ax, plot_c_ax);
+                    bf_render(buffer_final);
+                    fb_vsync();
+                    break;
                 case OUTPUT_NCURSES:
 #ifdef NCURSES
                     rc = draw_terminal_ncurses(inAtty, lines, width, number_of_bars, p.bar_width,
@@ -732,7 +801,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
 #endif
 
-                memcpy(previous_frame, bars, 256 * sizeof(int));
+                memcpy(previous_frame, bars, 8192 * sizeof(int));
 
                 // checking if audio thread has exited unexpectedly
                 if (audio.terminate == 1) {
@@ -749,7 +818,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         req.tv_nsec = 1000; // waiting some time to make sure audio is ready
         nanosleep(&req, NULL);
 
-        //**telling audio thread to terminate**//
+        //**tell audio thread to terminate**//
         audio.terminate = 1;
         pthread_join(p_thread, NULL);
 
@@ -762,6 +831,13 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         fftw_free(out_l);
         fftw_destroy_plan(p_l);
         fftw_destroy_plan(p_r);
+        bf_free_pixels(&buffer_l);
+        bf_free_pixels(&buffer_r);
+        bf_free_pixels(&buffer_final);
+
+        if (output_mode == OUTPUT_FRAMEBUFFER) {
+            fb_cleanup();
+        }
 
         cleanup();
 

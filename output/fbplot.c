@@ -1,0 +1,208 @@
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+
+#include "debug.h"
+#include "framebuffer.h"
+#include "fbplot.h"
+
+
+rgb666 rgb_to_rgb666(rgba c) {
+    rgb666 c2 = ((c.r >> 2) << 12) | ((c.g >> 2) << 6) | (c.b >> 2);
+    return c2;
+}
+
+rgba rgb666_to_rgba(rgb666 c) {
+    rgba c2;
+    c2.r = (uint8_t)((c >> 12) << 2);
+    c2.g = (uint8_t)(((c >> 6) & 0x40) << 2);
+    c2.b = (uint8_t)((c & 0x40) << 2);
+    return c2;
+}
+
+uint8_t clamp(double c) {
+    // prevent overflow
+    return (uint8_t)fmin(255, fmax(0, c));
+}
+
+rgba tinge_color(rgba c1, rgba c2, double alpha) {
+    // tinge c1 with c2, c1 <- a * c2 + (1-a) * c1
+    double y1 = 0.2126 * c1.r + 0.7152 * c1.g + 0.0722 * c1.b;
+    //double y2 = 0.2126 * c2.r + 0.7152 * c2.g + 0.0722 * c2.b;
+    c1.r = (uint8_t)clamp((1.0 - alpha) * (double)c1.r + y1 * alpha * (double)c2.r);
+    c1.g = (uint8_t)clamp((1.0 - alpha) * (double)c1.g + y1 * alpha * (double)c2.g);
+    c1.b = (uint8_t)clamp((1.0 - alpha) * (double)c1.b + y1 * alpha * (double)c2.b);
+    c1.a = (uint8_t)clamp((1.0 - alpha) * (double)c1.a + y1 * alpha * (double)c2.a);
+    return c1;
+}
+
+void bf_init(buffer *buff) {
+    // set the buffer screen size and allocate memory for pixels for the buffer
+    buff->w = FRAMEBUFFER_WIDTH;
+    buff->h = FRAMEBUFFER_HEIGHT;
+    buff->size = buff->h * buff->w;
+    debug("allocating new buffer pixels\n");
+    buff->pixels = (pixel*)calloc(buff->size, sizeof(pixel));
+}
+
+void bf_free_pixels(buffer *buff) {
+    free(buff->pixels);
+}
+
+void bf_set_pixel(buffer buff, uint32_t x, uint32_t y, rgba c) {
+    //DEBUG("i: %d\n", x * buff.h + y);
+    if ((x < buff.w) && (y < buff.h)) {
+        buff.pixels[y * buff.w + x] = rgba_to_pixel(c);
+    } else {
+        debug("set_pixel bounds broken, x: %d, y: %d\n", (int)x, (int)y);
+    }
+}
+
+void bf_clear(const buffer buff) {
+    for (uint32_t i = 0; i < buff.size; i++) {
+        buff.pixels[i] = 0;
+    }
+}
+
+void bf_copy(const buffer buff1, const buffer buff2) {
+    // copy buff2 into buff1
+    memcpy(buff1.pixels, buff2.pixels, sizeof(pixel) * ((buff1.size < buff2.size) ? buff1.size : buff2.size));
+}
+
+void bf_check_col(buffer buff) {
+    for (uint32_t i = 0; i < buff.size; i++) {
+        buff.pixels[i] = rgba_to_pixel(pixel_to_rgba(buff.pixels[i]));
+    }
+}
+
+void bf_blend(const buffer buff1, const buffer buff2, double alpha) {
+    // fade b2 into b1, of same size
+    // b1 = alpha*b1 + (1-alpha)*b2
+    rgba c1, c2;
+    for (uint32_t i = 0; i < buff1.size; i++) {
+        // separate channels
+        c1 = pixel_to_rgba(buff1.pixels[i]);
+        c2 = pixel_to_rgba(buff2.pixels[i]);
+        // blend
+        c1.r = (uint8_t)clamp(alpha * c1.r + (1.0 - alpha) * c2.r);
+        c1.g = (uint8_t)clamp(alpha * c1.g + (1.0 - alpha) * c2.g);
+        c1.b = (uint8_t)clamp(alpha * c1.b + (1.0 - alpha) * c2.b);
+        c1.a = (uint8_t)clamp(alpha * c1.a + (1.0 - alpha) * c2.a);
+        // put back
+        buff1.pixels[i] = rgba_to_pixel(c1);
+    }
+}
+
+void bf_shade(const buffer buff, double alpha) {
+    // shade buffer into black (alpha < 1.0) or brighter (alpha > 1.0)
+    // buff = alpha*buff
+    rgba c;
+    for (uint32_t i = 0; i < buff.size; i++) {
+        // separate channels
+        c = pixel_to_rgba(buff.pixels[i]);
+        // blend
+        c.r = (uint8_t)clamp(alpha * c.r);
+        c.g = (uint8_t)clamp(alpha * c.g);
+        c.b = (uint8_t)clamp(alpha * c.b);
+        c.a = (uint8_t)clamp(alpha * c.a);
+        buff.pixels[i] = rgba_to_pixel(c);
+    }
+}
+
+void bf_tinge(const buffer buff, const rgba tc, double alpha) {
+    // introduce a tinge of alpha * tc in the active pixels
+    rgba c;
+    for (uint32_t i = 0; i < buff.size; i++) {
+        c = pixel_to_rgba(buff.pixels[i]);
+        c = tinge_color(c, tc, alpha);
+        buff.pixels[i] = rgba_to_pixel(c);
+    }
+}
+
+void bf_grayscale(const buffer buff) {
+    double y;
+    rgba c;
+    for (uint32_t i = 0; i < buff.size; i++) {
+        // separate channels
+        c = pixel_to_rgba(buff.pixels[i]);
+        // linear relative luminance in [0, 1]
+        y = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+        // tint
+        c.g = (uint8_t)clamp(y * 255);
+        c.g = (uint8_t)clamp(y * 255);
+        c.b = (uint8_t)clamp(y * 255);
+        // put back
+        buff.pixels[i] = rgba_to_pixel(c);
+    }
+}
+
+void bf_superpose(const buffer buff1, const buffer buff2) {
+    // superpose buff2 over buff1 where buff2 is not 0
+    for (uint32_t i = 0; i < buff1.size; i++) {
+        if (buff2.pixels[i] != 0x00) {
+            buff1.pixels[i] = buff2.pixels[i];
+        }
+    }
+}
+
+void bf_draw_line(const buffer buff, uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1, rgba c) {
+    // draw a line to the buffer
+    // look at Bresenham's algorithm, or even antialiasing
+    int x, y;
+    int dx = x1 - x0;
+    int dy = y1 - y0;
+    int l = dx > dy ? dx : dy;
+    for (int i = 0; i <= l; i++) {
+        x = x0 + i * dx / l;
+        y = y0 + i * dy / l;
+        bf_set_pixel(buff, x, y, c);
+    }
+}
+
+void bf_plot_axes(const buffer buff, const axes ax, const rgba c) {
+    // draw axes around a rectangle
+    // outside bounds of ax
+    bf_draw_line(buff, ax.screen_x - 10, ax.screen_y - 1, ax.screen_x + ax.screen_w, ax.screen_y - 1, c);
+    bf_draw_line(buff, ax.screen_x - 1, ax.screen_y - 10, ax.screen_x - 1, ax.screen_y + ax.screen_h, c);
+}
+
+void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t num_points, rgba c) {
+    // plot some data to the buffer
+    //rgba c2 = c;
+    //c2.a /= 4;
+    //c2.r /= 4;
+    //c2.g /= 4;
+    //c2.b /= 4;
+    uint32_t x, y;
+    //uint32_t xm = ax.screen_x;
+    //uint32_t ym = (uint32_t)(ax.screen_h * (20 * log10(data[0]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
+    for (uint32_t i=1; i < num_points; i++) {
+        y = (uint32_t)(ax.screen_h * (20 * log10(data[i]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
+        if (y > ax.screen_y) {
+            x = (uint32_t)((ax.screen_w * i) / num_points) + ax.screen_x;
+            //bf_draw_line(buff, xm, ym - 1, x, y - 1, c2);
+            //bf_draw_line(buff, xm, ym + 1, x, y + 1, c2);
+            //bf_draw_line(buff, xm, ym, x, y, c);
+            bf_set_pixel(buff, x, y, c);
+            //xm = x;
+            //ym = y;
+        }
+    }
+}
+
+void bf_render(buffer buff) {
+    // push buffer pixels to the framebuffer
+    //rgba c;
+    pixel p;
+    for (uint32_t x = 0; x < buff.w; x++) {
+        for (uint32_t y = 0; y < buff.h; y++) {
+            //DEBUG("x: %d, y: %d, i: %d, size: %d \n", x, y, i, buff.size);
+            p = buff.pixels[y * buff.w + x];
+            //c = pixel_to_rgba(buff.pixels[y * buff.w + x]);
+            //fb_set_pixel(x, y, c);
+            fb_set_raw_pixel(x, y, p);
+        }
+    }
+    fb_vsync();
+}
+

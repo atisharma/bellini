@@ -50,14 +50,14 @@ return 0;
 // bin together power spectrum in dB
 int *make_bins(int FFTbufferSize,
         unsigned int rate,
-        fftw_complex out[(FFTbufferSize / 2 + 1)],
+        fftw_complex out[FFTbufferSize / 2 + 1],
         int number_of_bins,
         int channel) {
     int n, i;
-    double power[257];
+    double power[number_of_bins];
+    static int bins_left[8192];
+    static int bins_right[8192];
     int L = FFTbufferSize / 2 + 1;
-    static int bins_left[256];
-    static int bins_right[256];
     double y[L];
     double w = 1.0 / (FFTbufferSize * rate);
 
@@ -73,7 +73,7 @@ int *make_bins(int FFTbufferSize,
     int imin = floor(lower_cutoff * FFTbufferSize / rate);
     int imax = fmin(floor(upper_cutoff * FFTbufferSize / rate), (FFTbufferSize / 2 + 1));
 
-    for (n = 0; n < 257; n++)
+    for (n = 0; n < number_of_bins; n++)
         power[n] = 0.0;
 
     for (i = imin; i < imax; i++) {

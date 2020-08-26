@@ -181,6 +181,10 @@ bool validate_config(struct config_params *p, struct error_s *error) {
         return false;
 #endif
     }
+    if (strcmp(outputMethod, "framebuffer") == 0) {
+        p->om = OUTPUT_FRAMEBUFFER;
+        p->bgcol = 0;
+    }
     if (strcmp(outputMethod, "noncurses") == 0) {
         p->om = OUTPUT_NONCURSES;
         p->bgcol = 0;
