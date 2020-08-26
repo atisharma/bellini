@@ -34,8 +34,6 @@ int window(int k, void *data) {
         audio->in_r[i] = (audio->in_r[i] - r_start) / (r_end - r_start);
     }
     
-    // window
-
     // Kolmogorov-Zurbenko (k, m=3) filter: repeated average of buffers
     for (int ki = 0; ki < k; ki++) {
         for (int i = 1; i < audio->FFTbufferSize; i++) {    // careful with bounds checking for m
@@ -43,7 +41,7 @@ int window(int k, void *data) {
             audio->in_r[i] = (audio->in_r[i-1] + audio->in_r[i] + audio->in_r[i+1]) / 3.0;
         }
     }
-return 0;
+    return 0;
 }
 
 

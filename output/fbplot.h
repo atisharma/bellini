@@ -8,12 +8,12 @@
 
 #pragma once
 
-#define FRAMEBUFFER_WIDTH 800
-#define FRAMEBUFFER_HEIGHT 480
-
 #include <inttypes.h>
 
 #include "framebuffer.h"
+
+#define FRAMEBUFFER_WIDTH 800
+#define FRAMEBUFFER_HEIGHT 480
 
 typedef uint32_t rgb666;
 
@@ -59,6 +59,8 @@ void bf_init(buffer *buff);
 void bf_free_pixels(buffer *buff);
 
 void bf_set_pixel(buffer buff, uint32_t x, uint32_t y, rgba c);
+
+void bf_blit(buffer buff);
 
 void bf_render(buffer buff);
 

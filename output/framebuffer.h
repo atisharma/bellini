@@ -38,6 +38,8 @@ void fb_set_raw_pixel(uint32_t x, uint32_t y, uint32_t pixel);
 
 void fb_set_pixel(uint32_t x, uint32_t y, rgba c);
 
+void fb_blit(uint32_t *pixels, uint32_t line_length, uint32_t lines);
+
 void fb_fill_rect(uint32_t x, uint32_t y, uint32_t X, uint32_t Y, rgba c);
 
 void fb_clear();

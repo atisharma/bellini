@@ -19,6 +19,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <inttypes.h>
+#include <string.h>
 #include <time.h>
 #include <math.h>
 
@@ -34,9 +35,12 @@ void fb_setup() {
     ioctl(fd, FBIOGET_FSCREENINFO, &finfo);
     // this pointer is global
     fbp = mmap(0, vinfo.yres * finfo.line_length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    system("setterm -cursor off");
 }
 
 int fb_cleanup() {
+    fb_clear();
+    system("setterm -cursor on");
     return munmap(fbp, vinfo.yres * finfo.line_length);
 }
 
@@ -71,6 +75,23 @@ void fb_set_pixel(uint32_t x, uint32_t y, rgba c) {
     fb_set_raw_pixel(x, y, rgba_to_pixel(c));
 }
 
+void fb_blit(uint32_t *pixels, uint32_t line_length, uint32_t lines) {
+    // Copy whole lines at a time.
+    // Can be further optimised if *pixels is same size
+    // as fb, to copy in one go.
+    if ((finfo.line_length == line_length) && (vinfo.yres >= lines)) {
+        // may be upside down here!
+        memcpy(fbp, pixels, sizeof(uint32_t) * finfo.line_length * lines);
+    } else {
+        uint32_t location, pixels_loc;
+        for (uint32_t y=0; y<lines; y++) {
+            location = (vinfo.yres - y - 1) * finfo.line_length;
+            pixels_loc = y * line_length;
+            memcpy(fbp + location, pixels + pixels_loc, sizeof(uint32_t) * line_length);
+        }
+    }
+}
+
 void fb_fill_rect(uint32_t x, uint32_t y, uint32_t X, uint32_t Y, rgba c) {
     for (uint32_t i = 0; i < X; i++) {
         for (uint32_t j = 0; j < Y; j++) {
@@ -80,14 +101,7 @@ void fb_fill_rect(uint32_t x, uint32_t y, uint32_t X, uint32_t Y, rgba c) {
 }
 
 void fb_clear() {
-    rgba black = {0x00, 0x00, 0x00, 0x00};
-    // should be able to copy whole image into fb
-    // rather than set pixels individually
-    for (uint32_t x = 0; x < vinfo.xres; x++) {
-        for (uint32_t y = 0; y < vinfo.yres; y++) {
-            fb_set_pixel(x, y, black);
-        }
-    }
+    memset(fbp, 0, finfo.line_length * vinfo.yres);
 }
 
 void fb_vsync() {

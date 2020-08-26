@@ -5,11 +5,12 @@
  *  [x] window(signal -> signal)                # time domain windowing (ZS)
  *  [x] window(signal -> signal)                # other window approaches
  *  [x] transform(signal -> power_spectrum)     # apply fft
- *  [ ] move transform to sigproc.c
+ *  [ ] move transform, decay to sigproc.c
  *  [x] bin(power_spectrum -> histogram)        # gather fft in buckets (bars)
  *  [x] preplot(fft -> dB, freqs -> dB)         # turn fft data into plot data
  *  [x] render(image -> fb)                     # write array directly to framebuffer
  *  [x] plot(data -> image)                     # render plot data to array
+ *  [ ] bars to be type double
  *  [ ] remove ncurses output?
  *  [ ] remove noncurses output?
  *  [ ] remove raw output?
@@ -112,6 +113,8 @@ void cleanup(void) {
 #endif
     } else if (output_mode == OUTPUT_NONCURSES) {
         cleanup_terminal_noncurses();
+    } else if (output_mode == OUTPUT_FRAMEBUFFER) {
+        fb_cleanup();
     }
 }
 
@@ -211,15 +214,28 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     buffer buffer_r;
     bf_init(&buffer_r);
     bf_clear(buffer_r);
-    axes ax = {};
-    ax.screen_x = 0;
-    ax.screen_y = 0;
-    ax.screen_w = FRAMEBUFFER_WIDTH;
-    ax.screen_h = FRAMEBUFFER_HEIGHT;
-    ax.x_min = 0;      // 20 * log10(20)
-    ax.x_max = FRAMEBUFFER_WIDTH;      // 20 * log10(20000)
-    ax.y_min = -80;    // dB
-    ax.y_max = 0;
+    // left channel axes
+    axes ax_l;
+    ax_l.screen_x = 0;
+    ax_l.screen_y = 0;
+    ax_l.screen_w = FRAMEBUFFER_WIDTH - 1;
+    ax_l.screen_h = FRAMEBUFFER_HEIGHT;
+    ax_l.x_min = 0;
+    ax_l.x_max = FRAMEBUFFER_WIDTH;
+    ax_l.y_min = -120;    // dB
+    ax_l.y_max = 0;
+    // right channel axes
+    axes ax_r;
+    ax_r.screen_x = 1;
+    ax_r.screen_y = 0;
+    ax_r.screen_w = FRAMEBUFFER_WIDTH - 1;
+    ax_r.screen_h = FRAMEBUFFER_HEIGHT;
+    ax_r.x_min = 0;
+    ax_r.x_max = FRAMEBUFFER_WIDTH;
+    ax_r.y_min = -120;    // dB
+    ax_r.y_max = 0;
+
+    //time_t plot_time = 0;
 
     /*
     foreground = '#56ff00'		# P1
@@ -241,9 +257,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     */
     rgba plot_c_l   = {0xFF, 0xD2, 0x00, 0x00};
     rgba plot_c_r   = {0x00, 0xFF, 0x61, 0x00};
-    //rgba plot_c_a   = {0x33, 0x33, 0x33, 0x33};
-    //rgba plot_c_ax  = {0x00, 0xFF, 0x00, 0x00};
-    //rgba fade_c     = {0x55, 0x55, 0x55, 0x00};
 
 #ifndef NDEBUG
     int maxvalue = 0;
@@ -460,8 +473,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             case OUTPUT_FRAMEBUFFER:
                 fb_setup();
                 fb_clear();
-                width = ax.screen_w;
-                height = ax.screen_h;
+                width = ax_l.screen_w;
+                height = ax_l.screen_h;
                 break;
 #ifdef NCURSES
             // output: start ncurses mode
@@ -522,8 +535,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             }
 
             if (output_mode == OUTPUT_FRAMEBUFFER) {
-                // too many bins is too noisy
-                number_of_bars = ax.screen_w;
+                // too many bins is noisy
+                number_of_bars = ax_l.screen_w;
             } else {
 
                 // handle for user setting too many bars
@@ -704,7 +717,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 }
 
 
-                //peak_dB *= 0.9999;
                 // processing bars, after fft:
                 // TODO: move these to a new function in sigproc.c     !!!
                 for (n = 0; n < number_of_bars; n++) {
@@ -715,16 +727,21 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                         bars[n] = bars_right[n - number_of_bars / 2];
                     }
 
-                    // freq domain smoothing: alpha decay
-                    // may replace with Welch averaging or KS averaging
+                    // freq domain smoothing: alpha decay of raw power spectrum
+                    // is combined with Welch averaging (since overlapping frames)
+                    // and KS averaging within frames
                     bars[n] = p.alpha * bars_mem[n] + (1.0 - p.alpha) * bars[n];
                     bars_mem[n] = bars[n];
 
+                    // here, replace bars[n] with its height
                     // bar power in [0, 1] -> [peak_dB, noise_floor]dB -> bar height
+                    // int is not really the right type for bars, should be double
                     dB = 20 * log10(bars[n]);
                     peak_dB = fmax(dB, peak_dB);
-                    ax.y_max = peak_dB;
-                    ax.y_min = p.noise_floor;
+                    ax_l.y_max = peak_dB;
+                    ax_l.y_min = p.noise_floor;
+                    ax_r.y_max = peak_dB;
+                    ax_r.y_min = p.noise_floor;
                     if (output_mode != OUTPUT_FRAMEBUFFER) {
                         bars[n] = 0.9 * height * fmax((-dB + peak_dB) / p.noise_floor + 1.0, 0.0);
                     } else {
@@ -762,18 +779,23 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 #ifdef NDEBUG
                 switch (output_mode) {
                 case OUTPUT_FRAMEBUFFER:
-                    //bf_tinge(buffer_final, fade_c, 0.8);
+                    /*
+                    bf_clear(buffer_l);
+                    bf_clear(buffer_r);
+                    bf_plot_data(buffer_l, ax, bars_right, number_of_bars/2, plot_c_r);
+                    bf_plot_data(buffer_r, ax, bars_left, number_of_bars/2, plot_c_l);
+                    bf_blend(buffer_l, buffer_r, 0.5);
+                    bf_shade(buffer_l, 2);
+                    bf_blend(buffer_final, buffer_l, 0.5);
+                    bf_shade(buffer_final, 2 * p.alpha);
+                    */
                     bf_shade(buffer_final, p.alpha);
-                    //bf_clear(buffer_l);
-                    //bf_clear(buffer_r);
-                    bf_plot_data(buffer_final, ax, bars_right, number_of_bars/2, plot_c_r);
-                    bf_plot_data(buffer_final, ax, bars_left, number_of_bars/2, plot_c_l);
-                    //bf_blend(buffer_l, buffer_r, 0.5);
-                    //bf_superpose(buffer_final, buffer_l);
-                    //bf_copy(buffer_final, buffer_l);
-                    //bf_plot_axes(buffer_final, ax, plot_c_ax);
-                    bf_render(buffer_final);
+                    bf_plot_data(buffer_final, ax_l, bars_right, number_of_bars/2, plot_c_r);
+                    bf_plot_data(buffer_final, ax_r, bars_left, number_of_bars/2, plot_c_l);
                     fb_vsync();
+                    bf_blit(buffer_final);
+                    //printf("%3.2f FPS\r", 1.0 / (time(NULL) - plot_time));
+                    //plot_time = time(NULL);
                     break;
                 case OUTPUT_NCURSES:
 #ifdef NCURSES
@@ -834,10 +856,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         bf_free_pixels(&buffer_l);
         bf_free_pixels(&buffer_r);
         bf_free_pixels(&buffer_final);
-
-        if (output_mode == OUTPUT_FRAMEBUFFER) {
-            fb_cleanup();
-        }
 
         cleanup();
 

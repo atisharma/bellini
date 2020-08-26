@@ -29,10 +29,10 @@ rgba tinge_color(rgba c1, rgba c2, double alpha) {
     // tinge c1 with c2, c1 <- a * c2 + (1-a) * c1
     double y1 = 0.2126 * c1.r + 0.7152 * c1.g + 0.0722 * c1.b;
     //double y2 = 0.2126 * c2.r + 0.7152 * c2.g + 0.0722 * c2.b;
-    c1.r = (uint8_t)clamp((1.0 - alpha) * (double)c1.r + y1 * alpha * (double)c2.r);
-    c1.g = (uint8_t)clamp((1.0 - alpha) * (double)c1.g + y1 * alpha * (double)c2.g);
-    c1.b = (uint8_t)clamp((1.0 - alpha) * (double)c1.b + y1 * alpha * (double)c2.b);
-    c1.a = (uint8_t)clamp((1.0 - alpha) * (double)c1.a + y1 * alpha * (double)c2.a);
+    c1.r = clamp((1.0 - alpha) * (double)c1.r + y1 * alpha * (double)c2.r);
+    c1.g = clamp((1.0 - alpha) * (double)c1.g + y1 * alpha * (double)c2.g);
+    c1.b = clamp((1.0 - alpha) * (double)c1.b + y1 * alpha * (double)c2.b);
+    c1.a = clamp((1.0 - alpha) * (double)c1.a + y1 * alpha * (double)c2.a);
     return c1;
 }
 
@@ -59,9 +59,12 @@ void bf_set_pixel(buffer buff, uint32_t x, uint32_t y, rgba c) {
 }
 
 void bf_clear(const buffer buff) {
+    memset(buff.pixels, 0, sizeof(pixel) * buff.size);
+    /*
     for (uint32_t i = 0; i < buff.size; i++) {
         buff.pixels[i] = 0;
     }
+    */
 }
 
 void bf_copy(const buffer buff1, const buffer buff2) {
@@ -84,10 +87,10 @@ void bf_blend(const buffer buff1, const buffer buff2, double alpha) {
         c1 = pixel_to_rgba(buff1.pixels[i]);
         c2 = pixel_to_rgba(buff2.pixels[i]);
         // blend
-        c1.r = (uint8_t)clamp(alpha * c1.r + (1.0 - alpha) * c2.r);
-        c1.g = (uint8_t)clamp(alpha * c1.g + (1.0 - alpha) * c2.g);
-        c1.b = (uint8_t)clamp(alpha * c1.b + (1.0 - alpha) * c2.b);
-        c1.a = (uint8_t)clamp(alpha * c1.a + (1.0 - alpha) * c2.a);
+        c1.r = clamp(alpha * c1.r + (1.0 - alpha) * c2.r);
+        c1.g = clamp(alpha * c1.g + (1.0 - alpha) * c2.g);
+        c1.b = clamp(alpha * c1.b + (1.0 - alpha) * c2.b);
+        c1.a = clamp(alpha * c1.a + (1.0 - alpha) * c2.a);
         // put back
         buff1.pixels[i] = rgba_to_pixel(c1);
     }
@@ -101,10 +104,10 @@ void bf_shade(const buffer buff, double alpha) {
         // separate channels
         c = pixel_to_rgba(buff.pixels[i]);
         // blend
-        c.r = (uint8_t)clamp(alpha * c.r);
-        c.g = (uint8_t)clamp(alpha * c.g);
-        c.b = (uint8_t)clamp(alpha * c.b);
-        c.a = (uint8_t)clamp(alpha * c.a);
+        c.r = clamp(alpha * c.r);
+        c.g = clamp(alpha * c.g);
+        c.b = clamp(alpha * c.b);
+        c.a = clamp(alpha * c.a);
         buff.pixels[i] = rgba_to_pixel(c);
     }
 }
@@ -128,9 +131,9 @@ void bf_grayscale(const buffer buff) {
         // linear relative luminance in [0, 1]
         y = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
         // tint
-        c.g = (uint8_t)clamp(y * 255);
-        c.g = (uint8_t)clamp(y * 255);
-        c.b = (uint8_t)clamp(y * 255);
+        c.g = clamp(y * 255);
+        c.g = clamp(y * 255);
+        c.b = clamp(y * 255);
         // put back
         buff.pixels[i] = rgba_to_pixel(c);
     }
@@ -139,7 +142,7 @@ void bf_grayscale(const buffer buff) {
 void bf_superpose(const buffer buff1, const buffer buff2) {
     // superpose buff2 over buff1 where buff2 is not 0
     for (uint32_t i = 0; i < buff1.size; i++) {
-        if (buff2.pixels[i] != 0x00) {
+        if (!buff2.pixels[i]) {
             buff1.pixels[i] = buff2.pixels[i];
         }
     }
@@ -168,26 +171,41 @@ void bf_plot_axes(const buffer buff, const axes ax, const rgba c) {
 
 void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t num_points, rgba c) {
     // plot some data to the buffer
-    //rgba c2 = c;
-    //c2.a /= 4;
-    //c2.r /= 4;
-    //c2.g /= 4;
-    //c2.b /= 4;
     uint32_t x, y;
+    double s;
     //uint32_t xm = ax.screen_x;
     //uint32_t ym = (uint32_t)(ax.screen_h * (20 * log10(data[0]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
     for (uint32_t i=1; i < num_points; i++) {
         y = (uint32_t)(ax.screen_h * (20 * log10(data[i]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
         if (y > ax.screen_y) {
             x = (uint32_t)((ax.screen_w * i) / num_points) + ax.screen_x;
-            //bf_draw_line(buff, xm, ym - 1, x, y - 1, c2);
-            //bf_draw_line(buff, xm, ym + 1, x, y + 1, c2);
-            //bf_draw_line(buff, xm, ym, x, y, c);
-            bf_set_pixel(buff, x, y, c);
-            //xm = x;
-            //ym = y;
+            /*
+            for (uint32_t dx=xm; dx < x; dx++) {
+                bf_draw_line(buff, dx, ax.screen_y, dx, y, c);
+            }
+            xm = x;
+            ym = y;
+            */
+            for (uint32_t dy = ax.screen_y; dy < y; dy ++) {
+                s = (double)(dy - ax.screen_y) / (double)ax.screen_h;
+                rgba c2 = {clamp(c.r * s), clamp(c.g * s), clamp(c.b * s), clamp(c.a * s)};
+                bf_set_pixel(buff, x, dy, c2);
+            }
+            bf_set_pixel(buff, x,   y,   c);
+            /*
+            bf_set_pixel(buff, x-1, y,   c);
+            bf_set_pixel(buff, x+1, y,   c);
+            bf_set_pixel(buff, x,   y+1, c);
+            bf_set_pixel(buff, x,   y-1, c);
+            */
         }
     }
+}
+
+void bf_blit(buffer buff) {
+    // blit buffer pixels to the framebuffer
+    // relies on pixel format being the same
+    fb_blit(buff.pixels, buff.w, buff.h);
 }
 
 void bf_render(buffer buff) {
@@ -203,6 +221,5 @@ void bf_render(buffer buff) {
             fb_set_raw_pixel(x, y, p);
         }
     }
-    fb_vsync();
 }
 
