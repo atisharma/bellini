@@ -41,11 +41,6 @@ if SNDIO
     champagne_SOURCES += input/sndio.c
 endif
 
-if NCURSES
-    champagne_SOURCES += output/terminal_ncurses.c
-endif
-
-
 if !SYSTEM_LIBINIPARSER
     champagne_LDADD = -liniparser
     champagne_SOURCES += iniparser/libiniparser.la

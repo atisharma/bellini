@@ -11,11 +11,10 @@
  *  [x] render(image -> fb)                     # write array directly to framebuffer
  *  [x] plot(data -> image)                     # render plot data to array
  *  [ ] bars to be type double
- *  [ ] remove ncurses output?
  *  [ ] remove noncurses output?
  *  [ ] remove raw output?
  *  [ ] remove bar style output
- *  [ ] remove curses / tty output code
+ *  [x] remove curses / tty output code
  *  [ ] plot raw audio signal (option)
  */
 
@@ -50,12 +49,6 @@
 
 #include "debug.h"
 #include "util.h"
-
-#ifdef NCURSES
-#include "output/terminal_bcircle.h"
-#include "output/terminal_ncurses.h"
-#include <curses.h>
-#endif
 
 #include "output/raw.h"
 #include "output/terminal_noncurses.h"
@@ -102,13 +95,7 @@ fftw_plan p_l, p_r;
 
 // general: cleanup
 void cleanup(void) {
-    if (output_mode == OUTPUT_NCURSES) {
-#ifdef NCURSES
-        cleanup_terminal_ncurses();
-#else
-        ;
-#endif
-    } else if (output_mode == OUTPUT_NONCURSES) {
+    if (output_mode == OUTPUT_NONCURSES) {
         cleanup_terminal_noncurses();
     } else if (output_mode == OUTPUT_FRAMEBUFFER) {
         fb_cleanup();
@@ -476,15 +463,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 width = ax_l.screen_w;
                 //height = ax_l.screen_h;
                 break;
-#ifdef NCURSES
-            // output: start ncurses mode
-            case OUTPUT_NCURSES:
-                init_terminal_ncurses(p.color, p.bcolor, p.col, p.bgcol, p.gradient,
-                                      p.gradient_count, p.gradient_colors, &width, &lines);
-                // we have 8 times as much height due to using 1/8 block characters
-                //height = lines * 8;
-                break;
-#endif
             case OUTPUT_NONCURSES:
                 get_terminal_dim_noncurses(&width, &lines);
                 init_terminal_noncurses(inAtty, p.col, p.bgcol, width, lines, p.bar_width);
@@ -590,10 +568,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             while (!resizeTerminal) {
 
 // general: keyboard controls
-#ifdef NCURSES
-                if (output_mode == OUTPUT_NCURSES)
-                    ch = getch();
-#endif
                 if (output_mode == OUTPUT_NONCURSES)
                     ch = fgetc(stdin);
 
@@ -788,13 +762,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     //printf("%3.2f FPS\r", 1.0 / (time(NULL) - plot_time));
                     //plot_time = time(NULL);
                     break;
-                case OUTPUT_NCURSES:
-#ifdef NCURSES
-                    rc = draw_terminal_ncurses(inAtty, lines, width, number_of_bars, p.bar_width,
-                                               p.bar_spacing, rest, bars, previous_frame,
-                                               p.gradient);
-                    break;
-#endif
                 case OUTPUT_NONCURSES:
                     rc = draw_terminal_noncurses(inAtty, lines, width, number_of_bars, p.bar_width,
                                                  p.bar_spacing, rest, bars, previous_frame);

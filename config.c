@@ -52,48 +52,15 @@ void write_errorf(void *err, const char *fmt, ...) {
     va_end(args);
 }
 
-int validate_color(char *checkColor, void *params, void *err) {
-    struct config_params *p = (struct config_params *)params;
-    struct error_s *error = (struct error_s *)err;
+int validate_color(char *checkColor) {
+    // TODO: take hex colours for the framebuffer display
     int validColor = 0;
-    if (checkColor[0] == '#' && strlen(checkColor) == 7) {
-        // If the output mode is not ncurses, tell the user to use a named colour instead of hex
-        // colours.
-        if (p->om != OUTPUT_NCURSES) {
-#ifdef NCURSES
-            write_errorf(error,
-                         "hex color configured, but ncurses not set. Forcing ncurses mode.\n");
-            p->om = OUTPUT_NCURSES;
-#else
-            write_errorf(error,
-                         "Only 'ncurses' output method supports HTML colors "
-                         "(required by gradient). "
-                         "Cava was built without ncurses support, install ncurses(w) dev files "
-                         "and rebuild.\n");
-            return 0;
-#endif
-        }
-        // 0 to 9 and a to f
-        for (int i = 1; checkColor[i]; ++i) {
-            if (!isdigit(checkColor[i])) {
-                if (tolower(checkColor[i]) >= 'a' && tolower(checkColor[i]) <= 'f') {
-                    validColor = 1;
-                } else {
-                    validColor = 0;
-                    break;
-                }
-            } else {
-                validColor = 1;
-            }
-        }
-    } else {
-        if ((strcmp(checkColor, "black") == 0) || (strcmp(checkColor, "red") == 0) ||
-            (strcmp(checkColor, "green") == 0) || (strcmp(checkColor, "yellow") == 0) ||
-            (strcmp(checkColor, "blue") == 0) || (strcmp(checkColor, "magenta") == 0) ||
-            (strcmp(checkColor, "cyan") == 0) || (strcmp(checkColor, "white") == 0) ||
-            (strcmp(checkColor, "default") == 0))
-            validColor = 1;
-    }
+    if ((strcmp(checkColor, "black") == 0) || (strcmp(checkColor, "red") == 0) ||
+        (strcmp(checkColor, "green") == 0) || (strcmp(checkColor, "yellow") == 0) ||
+        (strcmp(checkColor, "blue") == 0) || (strcmp(checkColor, "magenta") == 0) ||
+        (strcmp(checkColor, "cyan") == 0) || (strcmp(checkColor, "white") == 0) ||
+        (strcmp(checkColor, "default") == 0))
+        validColor = 1;
     return validColor;
 }
 
@@ -102,22 +69,22 @@ bool validate_colors(void *params, void *err) {
     struct error_s *error = (struct error_s *)err;
 
     // validate: color
-    if (!validate_color(p->color, p, error)) {
-        write_errorf(error, "The value for 'foreground' is invalid. It can be either one of the 7 "
-                            "named colors or a HTML color of the form '#xxxxxx'.\n");
+    if (!validate_color(p->color)) {
+        write_errorf(error, "The value for 'foreground' is invalid. It can be one of the 7 "
+                            "named colors.\n");
         return false;
     }
 
     // validate: background color
-    if (!validate_color(p->bcolor, p, error)) {
+    if (!validate_color(p->bcolor)) {
         write_errorf(error, "The value for 'background' is invalid. It can be either one of the 7 "
-                            "named colors or a HTML color of the form '#xxxxxx'.\n");
+                            "named colors.\n");
         return false;
     }
 
     if (p->gradient) {
         for (int i = 0; i < p->gradient_count; i++) {
-            if (!validate_color(p->gradient_colors[i], p, error)) {
+            if (!validate_color(p->gradient_colors[i])) {
                 write_errorf(
                     error,
                     "Gradient color %d is invalid. It must be HTML color of the form '#xxxxxx'.\n",
@@ -172,15 +139,6 @@ bool validate_colors(void *params, void *err) {
 bool validate_config(struct config_params *p, struct error_s *error) {
     // validate: output method
     p->om = OUTPUT_NOT_SUPORTED;
-    if (strcmp(outputMethod, "ncurses") == 0) {
-        p->om = OUTPUT_NCURSES;
-        p->bgcol = -1;
-#ifndef NCURSES
-        write_errorf(error, "champagne was built without ncurses support, install ncursesw dev files "
-                            "and run make clean && ./configure && make again\n");
-        return false;
-#endif
-    }
     if (strcmp(outputMethod, "framebuffer") == 0) {
         p->om = OUTPUT_FRAMEBUFFER;
         p->bgcol = 0;
@@ -221,63 +179,10 @@ bool validate_config(struct config_params *p, struct error_s *error) {
         }
     }
     if (p->om == OUTPUT_NOT_SUPORTED) {
-#ifndef NCURSES
-        write_errorf(
-            error,
-            "output method %s is not supported, supported methods are: 'noncurses' and 'raw'\n",
-            outputMethod);
-        return false;
-#endif
-
-#ifdef NCURSES
-        write_errorf(error,
-                     "output method %s is not supported, supported methods are: 'ncurses', "
-                     "'noncurses' and 'raw'\n",
-                     outputMethod);
-        return false;
-#endif
     }
 
-    // validate: output channels
-    p->stereo = -1;
-    if (strcmp(channels, "mono") == 0) {
-        p->stereo = 0;
-        if (strcmp(p->mono_option, "average") != 0 && strcmp(p->mono_option, "left") != 0 &&
-            strcmp(p->mono_option, "right") != 0) {
-
-            write_errorf(error,
-                         "mono option %s is not supported, supported options are: 'average', "
-                         "'left' or 'right'\n",
-                         p->mono_option);
-            return false;
-        }
-    }
-    if (strcmp(channels, "stereo") == 0)
-        p->stereo = 1;
-    if (p->stereo == -1) {
-        write_errorf(
-            error,
-            "output channels %s is not supported, supported channelss are: 'mono' and 'stereo'\n",
-            channels);
-        return false;
-    }
-
-    // validate: bars
-    p->autobars = 1;
-    if (p->fixedbars > 0)
-        p->autobars = 0;
-    if (p->fixedbars > 256)
-        p->fixedbars = 256;
-    if (p->bar_width > 256)
-        p->bar_width = 256;
-    if (p->bar_width < 1)
-        p->bar_width = 1;
-
-    // validate: framerate
-    if (p->framerate < 0) {
-        write_errorf(error, "framerate can't be negative!\n");
-        return false;
-    }
+    // force stereo
+    p->stereo = 1;
 
     // validate: colors
     if (!validate_colors(p, error)) {
@@ -288,8 +193,8 @@ bool validate_config(struct config_params *p, struct error_s *error) {
     p->alpha = p->alpha;
     if (p->alpha < 0) {
         p->alpha = 0;
-    } else if (p->alpha > 1.0) {
-        p->alpha = 1.0;
+    } else if (p->alpha >= 1.0) {
+        p->alpha = 0.99999;
     }
 
     return true;
@@ -396,12 +301,7 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
         return validate_colors(p, error);
     }
 
-#ifdef NCURSES
     outputMethod = (char *)iniparser_getstring(ini, "output:method", "noncurses");
-#endif
-#ifndef NCURSES
-    outputMethod = (char *)iniparser_getstring(ini, "output:method", "noncurses");
-#endif
 
     p->alpha = iniparser_getdouble(ini, "smoothing:alpha", 0.8);
 
