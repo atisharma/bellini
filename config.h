@@ -43,18 +43,13 @@ enum input_method {
     INPUT_MAX
 };
 
-enum output_method { OUTPUT_FRAMEBUFFER, OUTPUT_NOT_SUPORTED };
-
 struct config_params {
-    char *color, *bcolor, *audio_source,
-        /**gradient_color_1, *gradient_color_2,*/ **gradient_colors, *data_format, *mono_option;
-    char bar_delim, frame_delim;
+    char *color, *bcolor, *audio_source;
     double alpha, noise_floor;
     double *userEQ;
     enum input_method im;
-    enum output_method om;
-    int col, bgcol, autobars, stereo, is_bin, ascii_range, bit_format,
-        gradient, gradient_count, fixedbars, framerate, bar_width, bar_spacing,
+    int col, bgcol,
+        framerate,
         fifoSample, fifoSampleBits;
 };
 

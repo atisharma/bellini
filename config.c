@@ -22,7 +22,7 @@ enum input_method default_methods[] = {
     INPUT_PULSE,
 };
 
-char *outputMethod, *channels;
+char *channels;
 
 const char *input_method_names[] = {
     "fifo", "portaudio", "alsa", "pulse", "sndio", "shmem",
@@ -82,18 +82,6 @@ bool validate_colors(void *params, void *err) {
         return false;
     }
 
-    if (p->gradient) {
-        for (int i = 0; i < p->gradient_count; i++) {
-            if (!validate_color(p->gradient_colors[i])) {
-                write_errorf(
-                    error,
-                    "Gradient color %d is invalid. It must be HTML color of the form '#xxxxxx'.\n",
-                    i + 1);
-                return false;
-            }
-        }
-    }
-
     // In case color is not html format set bgcol and col to predefinedint values
     p->col = -1;
     if (strcmp(p->color, "black") == 0)
@@ -137,25 +125,12 @@ bool validate_colors(void *params, void *err) {
 }
 
 bool validate_config(struct config_params *p, struct error_s *error) {
-    // validate: output method
-    p->om = OUTPUT_NOT_SUPORTED;
-    if (strcmp(outputMethod, "framebuffer") == 0) {
-        p->om = OUTPUT_FRAMEBUFFER;
-        p->bgcol = 0;
-    }
-    if (p->om == OUTPUT_NOT_SUPORTED) {
-    }
-
-    // force stereo
-    p->stereo = 1;
-
     // validate: colors
     if (!validate_colors(p, error)) {
         return false;
     }
 
     // validate: alpha
-    p->alpha = p->alpha;
     if (p->alpha < 0) {
         p->alpha = 0;
     } else if (p->alpha >= 1.0) {
@@ -232,33 +207,16 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
         return validate_colors(p, error);
     }
 
-    outputMethod = (char *)iniparser_getstring(ini, "output:method", "framebuffer");
-
     p->alpha = iniparser_getdouble(ini, "smoothing:alpha", 0.8);
 
     if (!load_colors(p, ini)) {
         return false;
     }
 
-    p->fixedbars = iniparser_getint(ini, "general:bars", 0);
-    p->bar_width = iniparser_getint(ini, "general:bar_width", 2);
-    p->bar_spacing = iniparser_getint(ini, "general:bar_spacing", 1);
     p->framerate = iniparser_getint(ini, "general:framerate", 60);
     p->noise_floor = iniparser_getint(ini, "general:noise_floor", -60);
 
     // config: output
-    free(channels);
-    free(p->mono_option);
-    free(p->data_format);
-
-    channels = strdup(iniparser_getstring(ini, "output:channels", "stereo"));
-    p->mono_option = strdup(iniparser_getstring(ini, "output:mono_option", "average"));
-    p->data_format = strdup(iniparser_getstring(ini, "output:data_format", "binary"));
-    p->bar_delim = (char)iniparser_getint(ini, "output:bar_delimiter", 59);
-    p->frame_delim = (char)iniparser_getint(ini, "output:frame_delimiter", 10);
-    p->ascii_range = iniparser_getint(ini, "output:ascii_max_range", 1000);
-    p->bit_format = iniparser_getint(ini, "output:bit_format", 16);
-
     free(p->audio_source);
 
     char *input_method_name;

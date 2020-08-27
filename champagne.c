@@ -76,8 +76,6 @@
 // int M = 8 * 1024;
 
 // used by sig handler
-// needs to know output mode in order to clean up terminal
-int output_mode;
 // whether we should reload the config or not
 int should_reload = 0;
 // whether we should only reload colors or not
@@ -264,8 +262,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             fprintf(stderr, "Error loading config. %s", error.message);
             exit(EXIT_FAILURE);
         }
-
-        output_mode = p.om;
 
         // input: init
         audio.source = malloc(1 + strlen(p.audio_source));
