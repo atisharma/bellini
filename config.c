@@ -143,10 +143,6 @@ bool validate_config(struct config_params *p, struct error_s *error) {
         p->om = OUTPUT_FRAMEBUFFER;
         p->bgcol = 0;
     }
-    if (strcmp(outputMethod, "noncurses") == 0) {
-        p->om = OUTPUT_NONCURSES;
-        p->bgcol = 0;
-    }
     if (strcmp(outputMethod, "raw") == 0) { // raw:
         p->om = OUTPUT_RAW;
         p->bar_spacing = 0;
@@ -200,47 +196,13 @@ bool validate_config(struct config_params *p, struct error_s *error) {
     return true;
 }
 
-bool load_colors(struct config_params *p, dictionary *ini, void *err) {
-    struct error_s *error = (struct error_s *)err;
-
+bool load_colors(struct config_params *p, dictionary *ini) {
     free(p->color);
     free(p->bcolor);
 
     p->color = strdup(iniparser_getstring(ini, "color:foreground", "default"));
     p->bcolor = strdup(iniparser_getstring(ini, "color:background", "default"));
 
-    p->gradient = iniparser_getint(ini, "color:gradient", 0);
-    if (p->gradient) {
-        for (int i = 0; i < p->gradient_count; ++i) {
-            free(p->gradient_colors[i]);
-        }
-        p->gradient_count = iniparser_getint(ini, "color:gradient_count", 8);
-        if (p->gradient_count < 2) {
-            write_errorf(error, "\nAtleast two colors must be given as gradient!\n");
-            return false;
-        }
-        if (p->gradient_count > 8) {
-            write_errorf(error, "\nMaximum 8 colors can be specified as gradient!\n");
-            return false;
-        }
-        p->gradient_colors = (char **)malloc(sizeof(char *) * p->gradient_count * 9);
-        p->gradient_colors[0] =
-            strdup(iniparser_getstring(ini, "color:gradient_color_1", "#59cc33"));
-        p->gradient_colors[1] =
-            strdup(iniparser_getstring(ini, "color:gradient_color_2", "#80cc33"));
-        p->gradient_colors[2] =
-            strdup(iniparser_getstring(ini, "color:gradient_color_3", "#a6cc33"));
-        p->gradient_colors[3] =
-            strdup(iniparser_getstring(ini, "color:gradient_color_4", "#cccc33"));
-        p->gradient_colors[4] =
-            strdup(iniparser_getstring(ini, "color:gradient_color_5", "#cca633"));
-        p->gradient_colors[5] =
-            strdup(iniparser_getstring(ini, "color:gradient_color_6", "#cc8033"));
-        p->gradient_colors[6] =
-            strdup(iniparser_getstring(ini, "color:gradient_color_7", "#cc5933"));
-        p->gradient_colors[7] =
-            strdup(iniparser_getstring(ini, "color:gradient_color_8", "#cc3333"));
-    }
     return true;
 }
 
@@ -295,17 +257,17 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
     ini = iniparser_load(configPath);
 
     if (colorsOnly) {
-        if (!load_colors(p, ini, error)) {
+        if (!load_colors(p, ini)) {
             return false;
         }
         return validate_colors(p, error);
     }
 
-    outputMethod = (char *)iniparser_getstring(ini, "output:method", "noncurses");
+    outputMethod = (char *)iniparser_getstring(ini, "output:method", "framebuffer");
 
     p->alpha = iniparser_getdouble(ini, "smoothing:alpha", 0.8);
 
-    if (!load_colors(p, ini, error)) {
+    if (!load_colors(p, ini)) {
         return false;
     }
 

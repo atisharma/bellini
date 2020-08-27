@@ -43,7 +43,7 @@ enum input_method {
     INPUT_MAX
 };
 
-enum output_method { OUTPUT_FRAMEBUFFER, OUTPUT_NONCURSES, OUTPUT_RAW, OUTPUT_NOT_SUPORTED };
+enum output_method { OUTPUT_FRAMEBUFFER, OUTPUT_RAW, OUTPUT_NOT_SUPORTED };
 
 struct config_params {
     char *color, *bcolor, *raw_target, *audio_source,

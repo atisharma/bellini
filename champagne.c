@@ -11,7 +11,7 @@
  *  [x] render(image -> fb)                     # write array directly to framebuffer
  *  [x] plot(data -> image)                     # render plot data to array
  *  [ ] bars to be type double
- *  [ ] remove noncurses output?
+ *  [x] remove noncurses output?
  *  [ ] remove raw output?
  *  [ ] remove bar style output
  *  [x] remove curses / tty output code
@@ -51,7 +51,6 @@
 #include "util.h"
 
 #include "output/raw.h"
-#include "output/terminal_noncurses.h"
 
 #include "input/alsa.h"
 #include "input/common.h"
@@ -95,9 +94,7 @@ fftw_plan p_l, p_r;
 
 // general: cleanup
 void cleanup(void) {
-    if (output_mode == OUTPUT_NONCURSES) {
-        cleanup_terminal_noncurses();
-    } else if (output_mode == OUTPUT_FRAMEBUFFER) {
+    if (output_mode == OUTPUT_FRAMEBUFFER) {
         fb_cleanup();
     }
 }
@@ -148,12 +145,9 @@ int main(int argc, char **argv) {
     int thr_id GCC_UNUSED;
     int bars[8192];
     int *bars_left, *bars_right;
-    int bars_mem[8192];
+    //int bars_mem[8192];
     int previous_frame[8192];
-    int n, lines, width, c, rest, inAtty, fp, fptest, rc;
-    //int height;
-    // int cont = 1;
-    // float temp;
+    int n, c, fp, fptest, rc;
     struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
     struct timespec sleep_mode_timer = {.tv_sec = 0, .tv_nsec = 0};
     char configPath[PATH_MAX];
@@ -178,7 +172,6 @@ Keys:\n\
 \n\
 as of 0.4.0 all options are specified in config file, see in '/home/username/.config/champagne/' \n";
 
-    char ch = '\0';
     int number_of_bars = 25;
     int sourceIsAuto = 1;
     double peak_dB = 0;
@@ -297,35 +290,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         }
 
         output_mode = p.om;
-
-        if ((output_mode != OUTPUT_RAW) || (output_mode != OUTPUT_FRAMEBUFFER)) {
-            // Check if we're running in a tty
-            inAtty = 0;
-            if (strncmp(ttyname(0), "/dev/tty", 8) == 0 || strcmp(ttyname(0), "/dev/console") == 0)
-                inAtty = 1;
-
-            // in macos vitual terminals are called ttys(xyz) and there are no ttys
-            if (strncmp(ttyname(0), "/dev/ttys", 9) == 0)
-                inAtty = 0;
-            if (inAtty) {
-                //system("setfont champagne.psf  >/dev/null 2>&1");
-                system("setterm -blank 0");
-            }
-
-            // We use unicode block characters to draw the bars and
-            // the locale var LANG must be set to use unicode chars.
-            // For some reason this var can't be retrieved with
-            // setlocale(LANG, NULL), so we get it with getenv.
-            // Also we can't set it with setlocale(LANG "") so we
-            // must set LC_ALL instead.
-            // Attempting to set to en_US if not set, if that lang
-            // is not installed and LANG is not set there will be
-            // no output, for more info see #109 #344
-            if (!getenv("LANG"))
-                setlocale(LC_ALL, "en_US.utf8");
-            else
-                setlocale(LC_ALL, "");
-        }
 
         // input: init
         audio.source = malloc(1 + strlen(p.audio_source));
@@ -451,22 +415,15 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
         while (!reloadConf) { // jumping back to this loop means that you resized the screen
             for (n = 0; n < 8192; n++) {
-                previous_frame[n] = 0;
-                bars_mem[n] = 0;
-                bars[n] = 0;
+                //previous_frame[n] = 0;
+                //bars_mem[n] = 0;
+                //bars[n] = 0;
             }
 
             switch (output_mode) {
             case OUTPUT_FRAMEBUFFER:
                 fb_setup();
                 fb_clear();
-                width = ax_l.screen_w;
-                //height = ax_l.screen_h;
-                break;
-            case OUTPUT_NONCURSES:
-                get_terminal_dim_noncurses(&width, &lines);
-                init_terminal_noncurses(inAtty, p.col, p.bgcol, width, lines, p.bar_width);
-                //height = (lines - 1) * 8;
                 break;
 
             case OUTPUT_RAW:
@@ -498,9 +455,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 }
                 printf("open file %s for writing raw output\n", p.raw_target);
 
-                // width must be hardcoded for raw output.
-                width = 256;
-
                 if (strcmp(p.data_format, "binary") == 0) {
                     //height = pow(2, p.bit_format) - 1;
                 } else {
@@ -515,48 +469,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             if (output_mode == OUTPUT_FRAMEBUFFER) {
                 // too many bins is noisy
                 number_of_bars = ax_l.screen_w;
-            } else {
-
-                // handle for user setting too many bars
-                if (p.fixedbars) {
-                    p.autobars = 0;
-                    if (p.fixedbars * p.bar_width + p.fixedbars * p.bar_spacing - p.bar_spacing > width)
-                        p.autobars = 1;
-                }
-
-                // getting original numbers of bars in case of resize
-                if (p.autobars == 1) {
-                    number_of_bars = (width + p.bar_spacing) / (p.bar_width + p.bar_spacing);
-                    // if (p.bar_spacing != 0) number_of_bars = (width - number_of_bars * p.bar_spacing
-                    // + p.bar_spacing) / bar_width;
-                } else
-                    number_of_bars = p.fixedbars;
-
-                if (number_of_bars < 1)
-                    number_of_bars = 1; // must have at least 1 bars
-                if (number_of_bars > 256)
-                    number_of_bars = 256; // can't have more than 256 bars
-
-                // stereo must have even numbers of bars
-                if (number_of_bars % 2 != 0)
-                    number_of_bars--;
-
-                // checks if there is still extra room, will use this to center
-                rest = (width - number_of_bars * p.bar_width - number_of_bars * p.bar_spacing +
-                        p.bar_spacing) /
-                       2;
-                if (rest < 0)
-                    rest = 0;
-
-#ifndef NDEBUG
-                debug("height: %d width: %d bars:%d bar width: %d rest: %d\n", height, width,
-                      number_of_bars, p.bar_width, rest);
-#endif
-
             }
 
             bool resizeTerminal = false;
-            fcntl(0, F_SETFL, O_NONBLOCK);
 
             if (p.framerate <= 1) {
                 req.tv_sec = 1 / (float)p.framerate;
@@ -567,56 +482,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
             while (!resizeTerminal) {
 
-// general: keyboard controls
-                if (output_mode == OUTPUT_NONCURSES)
-                    ch = fgetc(stdin);
-
-                switch (ch) {
-                case 65: // key up
-                    p.noise_floor = p.noise_floor + 5.0;
-                    break;
-                case 66: // key down
-                    p.noise_floor = p.noise_floor - 5.0;
-                    break;
-                case 68: // key right
-                    p.bar_width++;
-                    resizeTerminal = true;
-                    break;
-                case 67: // key left
-                    if (p.bar_width > 1)
-                        p.bar_width--;
-                    resizeTerminal = true;
-                    break;
-                case 'r': // reload config
-                    should_reload = 1;
-                    break;
-                case 'c': // reload colors
-                    reload_colors = 1;
-                    break;
-                case 'f': // change foreground color
-                    if (p.col < 7)
-                        p.col++;
-                    else
-                        p.col = 0;
-                    resizeTerminal = true;
-                    break;
-                case 'b': // change background color
-                    if (p.bgcol < 7)
-                        p.bgcol++;
-                    else
-                        p.bgcol = 0;
-                    resizeTerminal = true;
-                    break;
-
-                case 'q':
-                    if (sourceIsAuto)
-                        free(audio.source);
-                    cleanup();
-                    return EXIT_SUCCESS;
-                }
-
+                // may force reload through SIG
                 if (should_reload) {
-
                     reloadConf = true;
                     resizeTerminal = true;
                     should_reload = 0;
@@ -634,10 +501,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     reload_colors = 0;
                 }
 
-                // if (cont == 0) break;
-
 #ifndef NDEBUG
-                // clear();
                 refresh();
 #endif
                 window(3, &audio);
@@ -663,13 +527,12 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                         number_of_bars / 2,
                         RIGHT_CHANNEL);
 
-                } else { //**if in sleep mode wait and continue**//
-#ifndef NDEBUG
-                    printw("No sound, sleeping.\n");
-#endif
+                } else { // if in sleep mode wait and continue
                     // show a clock, screensaver or something
-                    //fb_clear();
-
+                    // for now, just fade
+                    bf_shade(buffer_final, 0.999);
+                    fb_vsync();
+                    bf_blit(buffer_final);
                     // wait, then check if running again.
                     sleep_mode_timer.tv_sec = 0;
                     sleep_mode_timer.tv_nsec = 1e8;
@@ -681,37 +544,28 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 // processing bars, after fft:
                 // TODO: move these to a new function in sigproc.c     !!!
                 for (n = 0; n < number_of_bars; n++) {
+                    /*
                     // stereo channels mirrored
                     if (n < number_of_bars / 2) {
                         bars[n] = bars_left[number_of_bars / 2 - n - 1];
                     } else {
                         bars[n] = bars_right[n - number_of_bars / 2];
                     }
-
                     // freq domain smoothing: alpha decay of raw power spectrum
                     // is combined with Welch averaging (since overlapping frames)
                     // and KS averaging within frames
                     bars[n] = p.alpha * bars_mem[n] + (1.0 - p.alpha) * bars[n];
                     bars_mem[n] = bars[n];
 
-                    // here, replace bars[n] with its height
-                    // bar power in [0, 1] -> [peak_dB, noise_floor]dB -> bar height
-                    // int is not really the right type for bars, should be double
-                    dB = 20 * log10(bars[n]);
+                    */
+                    dB = 20 * log10(fmax(bars_left[number_of_bars / 2 - n - 1], bars_right[n - number_of_bars / 2]));
                     peak_dB = fmax(dB, peak_dB);
                     ax_l.y_max = peak_dB;
                     ax_l.y_min = peak_dB + p.noise_floor;
                     ax_r.y_max = peak_dB;
                     ax_r.y_min = peak_dB + p.noise_floor;
-                    /*
-                    if (output_mode != OUTPUT_FRAMEBUFFER) {
-                        bars[n] = 0.9 * height * fmax((-dB + peak_dB) / p.noise_floor + 1.0, 0.0);
-                    } else {
-                        bars[n] = fmax((-dB + peak_dB) / p.noise_floor + 1.0, 0.0);
-                        //printf("peak dB: %10.3f, dB: %10.3f\r", peak_dB, dB);
-                    }
-                    */
 
+                    /*
 #ifndef NDEBUG
                     if (bars[n] < minvalue) {
                         minvalue = bars[n];
@@ -724,8 +578,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                         debug("negative bar value!! %d\n", bars[n]);
                         //    exit(EXIT_FAILURE); // Can't happen.
                     }
-
 #endif
+*/
 
                     // zero values causes divided by zero segfault (if not raw)
                     if (((output_mode != OUTPUT_FRAMEBUFFER) || (output_mode != OUTPUT_RAW)) && bars[n] < 1)
@@ -761,10 +615,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     bf_blit(buffer_final);
                     //printf("%3.2f FPS\r", 1.0 / (time(NULL) - plot_time));
                     //plot_time = time(NULL);
-                    break;
-                case OUTPUT_NONCURSES:
-                    rc = draw_terminal_noncurses(inAtty, lines, width, number_of_bars, p.bar_width,
-                                                 p.bar_spacing, rest, bars, previous_frame);
                     break;
                 case OUTPUT_RAW:
                     rc = print_raw_out(number_of_bars, fp, p.is_bin, p.bit_format, p.ascii_range,
