@@ -81,10 +81,6 @@ I've only tested the squeezelite input.
 Troubleshooting & FAQ
 ---------------------
 
-## I'd like it to start at boot
-
-So would I. Currently it crashes if called from crontab. I'm working on it.
-
 
 ## The flashing cursor is annoying
 

@@ -287,7 +287,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
             while (audio.format == -1 || audio.rate == 0) {
                 req.tv_sec = 0;
-                req.tv_nsec = 1000000;
+                req.tv_nsec = 1e8;
                 nanosleep(&req, NULL);
                 n++;
                 if (n > 2000) {
@@ -331,7 +331,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
             while (audio.rate == 0) {
                 req.tv_sec = 0;
-                req.tv_nsec = 1e6;
+                req.tv_nsec = 1e8;
                 nanosleep(&req, NULL);
                 n++;
                 if (n > 2000) {
