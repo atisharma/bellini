@@ -1,9 +1,10 @@
-#include "input/shmem.h"
-#include "input/common.h"
-
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#include "input/shmem.h"
+#include "input/common.h"
+#include "debug.h"
 
 typedef unsigned int u32_t;
 typedef short s16_t;
@@ -32,23 +33,26 @@ void *input_shmem(void *data) {
     int fd; /* file descriptor to mmaped area */
     int mmap_count = sizeof(vis_t);
     int buf_frames;
-    struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
-    // 0.1 long sleep when not playing to lower CPU usage
+    // reread multiple times each buffer replacement (overlapping windows)
+    // this can go very fast indeed with minimal performance impact
+    // and the benefit is fresh data for the high frequencies
+    struct timespec req = {.tv_sec = 0, .tv_nsec = 1e9 / 2400};
+    // 0.1s long sleep when not playing to lower CPU usage
     struct timespec req_silence = {.tv_sec = 0, .tv_nsec = 1e8};
 
     s16_t silence_buffer[VIS_BUF_SIZE];
     for (int i = 0; i < VIS_BUF_SIZE; i++)
         silence_buffer[i] = 0;
 
-    printf("input_shmem: source: %s", audio->source);
+    debug("input_shmem: source: %s\n", audio->source);
 
-    fd = shm_open(audio->source, O_RDWR, 0666);
+    fd = shm_open(audio->source, O_RDONLY, 0666);
 
     if (fd < 0) {
         printf("Could not open source '%s': %s\n", audio->source, strerror(errno));
         exit(EXIT_FAILURE);
     } else {
-        mmap_area = mmap(NULL, sizeof(vis_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        mmap_area = mmap(NULL, sizeof(vis_t), PROT_READ, MAP_SHARED, fd, 0);
         if ((intptr_t)mmap_area == -1) {
             printf("mmap failed - check if squeezelite is running with visualization enabled\n");
             exit(EXIT_FAILURE);
@@ -61,12 +65,6 @@ void *input_shmem(void *data) {
         audio->running = mmap_area->running;
         buf_frames = mmap_area->buf_size / 2;
         audio->index = (audio->FFTbufferSize - mmap_area->buf_index / 2) % audio->FFTbufferSize;
-        // reread 4x each buffer replacement (overlapping windows)
-        // reread at 60fps
-        //req.tv_nsec = 2.5e5 * buf_frames / mmap_area->rate;
-        //req.tv_nsec = 1e8 / 119;
-        // this can go very fast with minimal performance impact
-        req.tv_nsec = 1e8 / 240;
         if (mmap_area->running) {
             write_to_fftw_input_buffers(mmap_area->buffer, buf_frames, audio);
             nanosleep(&req, NULL);
@@ -82,7 +80,7 @@ void *input_shmem(void *data) {
             printf("Could not close file descriptor %d: %s", fd, strerror(errno));
         }
     } else {
-        printf("Wrong file descriptor %d", fd);
+        printf("Bad file descriptor %d", fd);
     }
 
     if (munmap(mmap_area, mmap_count) != 0) {

@@ -247,12 +247,10 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         default: // argument: no arguments; exit
             abort();
         }
-
-        n = 0;
     }
 
     // general: main loop
-    while (1) {
+    while (true) {
 
         debug("loading config\n");
         // config: load
@@ -384,16 +382,13 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         }
 
         bool reloadConf = false;
-
-        while (!reloadConf) { // jumping back to this loop means that you resized the screen
+        while (!reloadConf) {
 
             fb_setup();
             fb_clear();
 
             // too many bins is noisy
             number_of_bars = ax_l.screen_w / 2;
-
-            bool resizeTerminal = false;
 
             if (p.framerate <= 1) {
                 req.tv_sec = 1 / (float)p.framerate;
@@ -402,12 +397,13 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 req.tv_nsec = 1e9 / (float)p.framerate;
             }
 
-            while (!resizeTerminal) {
+            bool breakMainLoop = false;
+            while (!breakMainLoop) {
 
                 // may force reload through SIG
                 if (should_reload) {
                     reloadConf = true;
-                    resizeTerminal = true;
+                    breakMainLoop = true;
                     should_reload = 0;
                 }
 
@@ -419,7 +415,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                         fprintf(stderr, "Error loading config. %s", error.message);
                         exit(EXIT_FAILURE);
                     }
-                    resizeTerminal = true;
+                    breakMainLoop = true;
                     reload_colors = 0;
                 }
 
@@ -428,7 +424,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 #endif
                 window(3, &audio);
 
-                // process: if input was present for the last 5 frames apply FFT to it
                 if (audio.running) {
 
                     // process: execute FFT and sort frequency bands
@@ -463,8 +458,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 }
 
 
-                // processing bars, after fft:
-                // TODO: move these to a new function in sigproc.c     !!!
+                // set plotting axes
                 for (n = 0; n < number_of_bars; n++) {
                     dB = 20 * log10(fmax(bars_left[n], bars_right[n]));
                     peak_dB = fmax(dB, peak_dB);
@@ -499,20 +493,21 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 }
 
                 nanosleep(&req, NULL);
-            } // resize terminal
+            }
 
         } // reloading config
         req.tv_sec = 0;
         req.tv_nsec = 1000; // waiting some time to make sure audio is ready
         nanosleep(&req, NULL);
 
-        //**tell audio thread to terminate**//
+        // tell input thread to terminate
         audio.terminate = 1;
         pthread_join(p_thread, NULL);
 
         if (sourceIsAuto)
             free(audio.source);
 
+        // free fft working space
         fftw_free(audio.in_r);
         fftw_free(audio.in_l);
         fftw_free(out_r);
@@ -525,6 +520,5 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
         cleanup();
 
-        // fclose(fp);
     }
 }

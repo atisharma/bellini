@@ -13,16 +13,12 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 
-double smoothDef[5] = {1, 1, 1, 1, 1};
-
 enum input_method default_methods[] = {
     INPUT_FIFO,
     INPUT_PORTAUDIO,
     INPUT_ALSA,
     INPUT_PULSE,
 };
-
-char *channels;
 
 const char *input_method_names[] = {
     "fifo", "portaudio", "alsa", "pulse", "sndio", "shmem",
