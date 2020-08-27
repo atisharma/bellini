@@ -90,11 +90,9 @@ struct config_params p;
 fftw_complex *out_l, *out_r;
 fftw_plan p_l, p_r;
 
-// general: cleanup
+// general: exit cleanly
 void cleanup(void) {
-    if (output_mode == OUTPUT_FRAMEBUFFER) {
-        fb_cleanup();
-    }
+    fb_cleanup();
 }
 
 // general: handle signals
@@ -144,8 +142,7 @@ int main(int argc, char **argv) {
     int bars[8192];
     int *bars_left, *bars_right;
     int previous_frame[8192];
-    int n, c, rc;
-    //int fp, fptest;
+    int n, c;
     struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
     struct timespec sleep_mode_timer = {.tv_sec = 0, .tv_nsec = 0};
     char configPath[PATH_MAX];
@@ -413,20 +410,11 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
         while (!reloadConf) { // jumping back to this loop means that you resized the screen
 
-            switch (output_mode) {
-            case OUTPUT_FRAMEBUFFER:
-                fb_setup();
-                fb_clear();
-                break;
+            fb_setup();
+            fb_clear();
 
-            default:
-                exit(EXIT_FAILURE); // Can't happen.
-            }
-
-            if (output_mode == OUTPUT_FRAMEBUFFER) {
-                // too many bins is noisy
-                number_of_bars = ax_l.screen_w;
-            }
+            // too many bins is noisy
+            number_of_bars = ax_l.screen_w;
 
             bool resizeTerminal = false;
 
@@ -508,10 +496,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     ax_r.y_max = peak_dB;
                     ax_r.y_min = peak_dB + p.noise_floor;
 
-                    // zero values causes divided by zero segfault (if not raw)
-                    if ((output_mode != OUTPUT_FRAMEBUFFER) && bars[n] < 1)
-                        bars[n] = 1;
-
                 }
 
 #ifndef NDEBUG
@@ -521,36 +505,26 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
 // output: draw processed input
 #ifdef NDEBUG
-                switch (output_mode) {
-                case OUTPUT_FRAMEBUFFER:
-                    // plotting to framebuffer
-                    /*
-                    bf_clear(buffer_l);
-                    bf_clear(buffer_r);
-                    bf_plot_data(buffer_l, ax, bars_right, number_of_bars/2, plot_c_r);
-                    bf_plot_data(buffer_r, ax, bars_left, number_of_bars/2, plot_c_l);
-                    bf_blend(buffer_l, buffer_r, 0.5);
-                    bf_shade(buffer_l, 2);
-                    bf_blend(buffer_final, buffer_l, 0.5);
-                    bf_shade(buffer_final, 2 * p.alpha);
-                    */
-                    bf_shade(buffer_final, p.alpha);
-                    bf_plot_data(buffer_final, ax_l, bars_right, number_of_bars/2, plot_c_r);
-                    bf_plot_data(buffer_final, ax_r, bars_left, number_of_bars/2, plot_c_l);
-                    bf_plot_axes(buffer_final, ax_l, ax_c, ax_c2);
-                    fb_vsync();
-                    bf_blit(buffer_final);
-                    //printf("%3.2f FPS\r", 1.0 / (time(NULL) - plot_time));
-                    //plot_time = time(NULL);
-                    break;
+                // plotting to framebuffer
+                /*
+                bf_clear(buffer_l);
+                bf_clear(buffer_r);
+                bf_plot_data(buffer_l, ax, bars_right, number_of_bars/2, plot_c_r);
+                bf_plot_data(buffer_r, ax, bars_left, number_of_bars/2, plot_c_l);
+                bf_blend(buffer_l, buffer_r, 0.5);
+                bf_shade(buffer_l, 2);
+                bf_blend(buffer_final, buffer_l, 0.5);
+                bf_shade(buffer_final, 2 * p.alpha);
+                */
+                bf_shade(buffer_final, p.alpha);
+                bf_plot_data(buffer_final, ax_l, bars_right, number_of_bars/2, plot_c_r);
+                bf_plot_data(buffer_final, ax_r, bars_left, number_of_bars/2, plot_c_l);
+                bf_plot_axes(buffer_final, ax_l, ax_c, ax_c2);
+                fb_vsync();
+                bf_blit(buffer_final);
+                //printf("%3.2f FPS\r", 1.0 / (time(NULL) - plot_time));
+                //plot_time = time(NULL);
 
-                default:
-                    exit(EXIT_FAILURE); // Can't happen.
-                }
-
-                // terminal has been resized breaking to recalibrating values
-                if (rc == -1)
-                    resizeTerminal = true;
 
 #endif
 
