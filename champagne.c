@@ -48,7 +48,6 @@
 #include "sigproc.h"
 #include "output/framebuffer.h"
 #include "output/fbplot.h"
-#include "output/clock.h"
 
 #ifdef __GNUC__
 // curses.h or other sources may already define
@@ -153,7 +152,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     bf_clear(buffer_final);
     buffer clock;
     bf_init(&clock);
-    bf_clear(clock);
 
     // left channel axes
     axes ax_l;
@@ -163,8 +161,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     ax_l.screen_h = FRAMEBUFFER_HEIGHT;
     ax_l.x_min = log10(LOWER_CUTOFF_FREQ);
     ax_l.x_max = log10(UPPER_CUTOFF_FREQ);
-    ax_l.y_min = -120;    // dB
-    ax_l.y_max = 0;
+    ax_l.y_min = -1000;    // dB
+    ax_l.y_max = 500;
 
     // right channel axes
     axes ax_r = ax_l;
@@ -193,7 +191,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     rgba plot_c_r   = {0x00, 0xFF, 0x61, 0x00};
     rgba ax_c       = {0x92, 0xFF, 0x00, 0x00};
     rgba ax_c2      = {0xF2, 0x22, 0x10, 0x00};
-    rgba text_c     = {0xFF, 0x41, 0x00, 0x00};
+    rgba text_c     = {0xFF, 0x51, 0x00, 0x00};
 
     // general: console title
     printf("%c]0;%s%c", '\033', PACKAGE, '\007');
@@ -416,14 +414,13 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
                 } else { // if in sleep mode wait and continue
                     // show a clock, screensaver or something
-                    // WARNING!!!
-                    // This section is showing strange order-dependent behaviour
+                    bf_clear(clock);
                     now = time(NULL);
                     l = strftime(timestr, sizeof(timestr), "%H:%M", localtime(&now));
-                    bf_text(buffer_final, timestr, l, 48, 200, 200, text_c);
+                    bf_text(clock, timestr, l, 48, 200, 200, text_c);
                     l = strftime(timestr, sizeof(timestr), "%a, %d %B %Y", localtime(&now));
-                    bf_text(buffer_final, timestr, l, 12, 200, 80, text_c);
-                    bf_shade(buffer_final, 0.999);
+                    bf_text(clock, timestr, l, 12, 200, 80, text_c);
+                    bf_blend(buffer_final, clock, 0.97);
                     fb_vsync();
                     bf_blit(buffer_final);
                     // wait, then check if running again.
