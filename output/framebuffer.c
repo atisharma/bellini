@@ -36,12 +36,10 @@ void fb_setup() {
     ioctl(fd, FBIOGET_FSCREENINFO, &finfo);
     // this pointer is global
     fbp = mmap(0, vinfo.yres * finfo.line_length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    system("setterm -cursor off");
 }
 
 int fb_cleanup() {
     fb_clear();
-    system("setterm -cursor on");
     return munmap(fbp, vinfo.yres * finfo.line_length);
 }
 
