@@ -50,8 +50,6 @@
 #include "debug.h"
 #include "util.h"
 
-#include "output/raw.h"
-
 #include "input/alsa.h"
 #include "input/common.h"
 #include "input/fifo.h"
@@ -145,9 +143,9 @@ int main(int argc, char **argv) {
     int thr_id GCC_UNUSED;
     int bars[8192];
     int *bars_left, *bars_right;
-    //int bars_mem[8192];
     int previous_frame[8192];
-    int n, c, fp, fptest, rc;
+    int n, c, rc;
+    //int fp, fptest;
     struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
     struct timespec sleep_mode_timer = {.tv_sec = 0, .tv_nsec = 0};
     char configPath[PATH_MAX];
@@ -414,52 +412,11 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         bool reloadConf = false;
 
         while (!reloadConf) { // jumping back to this loop means that you resized the screen
-            for (n = 0; n < 8192; n++) {
-                //previous_frame[n] = 0;
-                //bars_mem[n] = 0;
-                //bars[n] = 0;
-            }
 
             switch (output_mode) {
             case OUTPUT_FRAMEBUFFER:
                 fb_setup();
                 fb_clear();
-                break;
-
-            case OUTPUT_RAW:
-                if (strcmp(p.raw_target, "/dev/stdout") != 0) {
-                    // checking if file exists
-                    if (access(p.raw_target, F_OK) != -1) {
-                        // testopening in case it's a fifo
-                        fptest = open(p.raw_target, O_RDONLY | O_NONBLOCK, 0644);
-
-                        if (fptest == -1) {
-                            printf("could not open file %s for writing\n", p.raw_target);
-                            exit(1);
-                        }
-                    } else {
-                        printf("creating fifo %s\n", p.raw_target);
-                        if (mkfifo(p.raw_target, 0664) == -1) {
-                            printf("could not create fifo %s\n", p.raw_target);
-                            exit(1);
-                        }
-                        // fifo needs to be open for reading in order to write to it
-                        fptest = open(p.raw_target, O_RDONLY | O_NONBLOCK, 0644);
-                    }
-                }
-
-                fp = open(p.raw_target, O_WRONLY | O_NONBLOCK | O_CREAT, 0644);
-                if (fp == -1) {
-                    printf("could not open file %s for writing\n", p.raw_target);
-                    exit(1);
-                }
-                printf("open file %s for writing raw output\n", p.raw_target);
-
-                if (strcmp(p.data_format, "binary") == 0) {
-                    //height = pow(2, p.bit_format) - 1;
-                } else {
-                    //height = p.ascii_range;
-                }
                 break;
 
             default:
@@ -544,20 +501,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 // processing bars, after fft:
                 // TODO: move these to a new function in sigproc.c     !!!
                 for (n = 0; n < number_of_bars; n++) {
-                    /*
-                    // stereo channels mirrored
-                    if (n < number_of_bars / 2) {
-                        bars[n] = bars_left[number_of_bars / 2 - n - 1];
-                    } else {
-                        bars[n] = bars_right[n - number_of_bars / 2];
-                    }
-                    // freq domain smoothing: alpha decay of raw power spectrum
-                    // is combined with Welch averaging (since overlapping frames)
-                    // and KS averaging within frames
-                    bars[n] = p.alpha * bars_mem[n] + (1.0 - p.alpha) * bars[n];
-                    bars_mem[n] = bars[n];
-
-                    */
                     dB = 20 * log10(fmax(bars_left[number_of_bars / 2 - n - 1], bars_right[n - number_of_bars / 2]));
                     peak_dB = fmax(dB, peak_dB);
                     ax_l.y_max = peak_dB;
@@ -565,24 +508,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     ax_r.y_max = peak_dB;
                     ax_r.y_min = peak_dB + p.noise_floor;
 
-                    /*
-#ifndef NDEBUG
-                    if (bars[n] < minvalue) {
-                        minvalue = bars[n];
-                        debug("min value: %d\n", minvalue); // checking maxvalue 10000
-                    }
-                    if (bars[n] > maxvalue) {
-                        maxvalue = bars[n];
-                    }
-                    if (bars[n] < 0) {
-                        debug("negative bar value!! %d\n", bars[n]);
-                        //    exit(EXIT_FAILURE); // Can't happen.
-                    }
-#endif
-*/
-
                     // zero values causes divided by zero segfault (if not raw)
-                    if (((output_mode != OUTPUT_FRAMEBUFFER) || (output_mode != OUTPUT_RAW)) && bars[n] < 1)
+                    if ((output_mode != OUTPUT_FRAMEBUFFER) && bars[n] < 1)
                         bars[n] = 1;
 
                 }
@@ -615,10 +542,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     bf_blit(buffer_final);
                     //printf("%3.2f FPS\r", 1.0 / (time(NULL) - plot_time));
                     //plot_time = time(NULL);
-                    break;
-                case OUTPUT_RAW:
-                    rc = print_raw_out(number_of_bars, fp, p.is_bin, p.bit_format, p.ascii_range,
-                                       p.bar_delim, p.frame_delim, bars);
                     break;
 
                 default:
