@@ -143,37 +143,6 @@ bool validate_config(struct config_params *p, struct error_s *error) {
         p->om = OUTPUT_FRAMEBUFFER;
         p->bgcol = 0;
     }
-    if (strcmp(outputMethod, "raw") == 0) { // raw:
-        p->om = OUTPUT_RAW;
-        p->bar_spacing = 0;
-        p->bar_width = 1;
-
-        // checking data format
-        p->is_bin = -1;
-        if (strcmp(p->data_format, "binary") == 0) {
-            p->is_bin = 1;
-            // checking bit format:
-            if (p->bit_format != 8 && p->bit_format != 16) {
-                write_errorf(
-                    error,
-                    "bit format  %d is not supported, supported data formats are: '8' and '16'\n",
-                    p->bit_format);
-                return false;
-            }
-        } else if (strcmp(p->data_format, "ascii") == 0) {
-            p->is_bin = 0;
-            if (p->ascii_range < 1) {
-                write_errorf(error, "ascii max value must be a positive integer\n");
-                return false;
-            }
-        } else {
-            write_errorf(error,
-                         "data format %s is not supported, supported data formats are: 'binary' "
-                         "and 'ascii'\n",
-                         p->data_format);
-            return false;
-        }
-    }
     if (p->om == OUTPUT_NOT_SUPORTED) {
     }
 
@@ -280,12 +249,10 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
     // config: output
     free(channels);
     free(p->mono_option);
-    free(p->raw_target);
     free(p->data_format);
 
     channels = strdup(iniparser_getstring(ini, "output:channels", "stereo"));
     p->mono_option = strdup(iniparser_getstring(ini, "output:mono_option", "average"));
-    p->raw_target = strdup(iniparser_getstring(ini, "output:raw_target", "/dev/stdout"));
     p->data_format = strdup(iniparser_getstring(ini, "output:data_format", "binary"));
     p->bar_delim = (char)iniparser_getint(ini, "output:bar_delimiter", 59);
     p->frame_delim = (char)iniparser_getint(ini, "output:frame_delimiter", 10);

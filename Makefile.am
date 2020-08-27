@@ -10,7 +10,7 @@ M_CPPFLAGS = -DSYSTEM_LIBINIPARSER=@SYSTEM_LIBINIPARSER@
 
 bin_PROGRAMS = champagne
 champagne_SOURCES = champagne.c config.c input/common.c input/fifo.c input/shmem.c \
-               output/raw.c sigproc.c \
+               sigproc.c \
 	       output/framebuffer.c output/fbplot.c
 champagne_LDFLAGS = -L/usr/local/lib -Wl,-rpath /usr/local/lib
 champagne_CPPFLAGS = -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(VERSION)\" \

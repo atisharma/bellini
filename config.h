@@ -46,7 +46,7 @@ enum input_method {
 enum output_method { OUTPUT_FRAMEBUFFER, OUTPUT_RAW, OUTPUT_NOT_SUPORTED };
 
 struct config_params {
-    char *color, *bcolor, *raw_target, *audio_source,
+    char *color, *bcolor, *audio_source,
         /**gradient_color_1, *gradient_color_2,*/ **gradient_colors, *data_format, *mono_option;
     char bar_delim, frame_delim;
     double alpha, noise_floor;
