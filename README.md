@@ -1,17 +1,19 @@
 Champagne
 =========
 
-Champagne is a fork (well, a butchery) of [CAVA](https://github.com/karlstav/cava/) to provide more a 'scientifically correct' spectrum analyzer.
-Much of the heavy lifting was done in cava.
+Champagne is a fork (well, more of a butchery) of [CAVA](https://github.com/karlstav/cava/) to provide more a 'scientifically correct' spectrum analyzer.
+Much of the heavy lifting and infrastructure was done by the author(s) of cava. So credit to them.
 
 Like CAVA, champagne's goal is to provide a audio spectrum analyzer for Linux from various inputs.
+Unlike CAVA, champagne is meant for accuracy and correctness, and writes directly to the framebuffer for speed and precision.
 
-Unlike CAVA, champagne is meant for accuracy and correctness, and writes directly (well, will soon...) to the framebuffer for speed.
-Although it looks nice with cava's ncurses output.
+Since the aims are somewhat different, and achieving those involved changing a substantial amount of the core code, I forked the project.
 
-Champagne inherits CAVA's input support, so should work with Pulseaudio, fifo (mpd), sndio, squeezelite and portaudio.
+Champagne inherits CAVA's input support, so should work with Pulseaudio, fifo (mpd), sndio, squeezelite and portaudio. It's only tested on squeezelite.
 
-It also introduces a number of bugs.
+It probably introduces a number of bugs.
+
+I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a Pimoroni Hyperpixel 4.0 LCD screen in landscape orientation, and get a very smooth and responsive 60ps, using less than 50% on one core.
 
 
 Features
@@ -19,21 +21,83 @@ Features
 
 Distinguishing features include:
 
-- [x] accurate power spectrum on log-log plot
-- [ ] ... with labelled axes
-- [ ] accurate noise floor truncation
-- [ ] left/right merged colour schemes
-- [ ] direct framebuffer output
+- an accurate two-channel power spectrum on log-log plot
+- windowing of the data using a (3, 3) [Kolmogorov-Zurbenko filter](https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Zurbenko_filter)
+- alpha smoothing of the power spectrum
+- axes mark off 20dB intervals (power) and powers of 10 / octaves (frequency)
+- noise floor truncation
+- left/right merged colour schemes
+- direct framebuffer output
 
 
 Installing
 ----------
 
-Installation should be exactly the same as for CAVA. Please refer to those instructions.
+Installation and compilation should be almost exactly the same as for CAVA. Please refer to those instructions.
+
+For framebuffer output, the config file should contain only the following options:
+
+```
+[general]
+# noise floor is dB from measured peak power
+noise_floor = -160
+
+[input]
+# only tested with squeezelite/shmem
+method = shmem
+source = /squeezelite-dc:a6:32:c0:5c:0d
+
+[output]
+method = framebuffer
+
+[smoothing]
+# alpha decay for alpha smoothing of the FFT and fading of the display
+alpha = 0.8
+```
+
+To use with a Hyperpixel 4.0, your `/boot/config.txt` should contain:
+
+```
+dtoverlay=hyperpixel4
+enable_dpi_lcd=1
+dpi_group=2
+dpi_mode=87
+dpi_output_format=0x7f216
+dpi_timings=480 0 10 16 59 800 0 15 113 15 0 0 0 60 0 32000000 6
+
+# see https://github.com/pimoroni/hyperpixel4/issues/39 for rotation
+display_lcd_rotate=1
+#dtoverlay=vc4-fkms-v3d     # <-- enabling this breaks rotation
+```
+
+and possibly `arm_64bit=1` if you are using 64 bit.
+Notice the screen rotation. Get that wrong and the code will segfault.
 
 
 Capturing audio
 ---------------
 
 Audio input should be exactly the same as for CAVA. Please refer to those instructions.
+I've only tested the squeezelite input.
 
+
+Troubleshooting & FAQ
+---------------------
+
+## I'd like it to start at boot
+
+So would I. Currently it crashes if called from crontab. I'm working on it.
+
+
+## The flashing cursor is annoying
+
+If the flashing cursor is annoying you, put
+
+    @reboot echo "\e[?25l" > /dev/tty0
+
+in root's crontab.
+
+
+## I'd like to change XYZ option
+
+Some assumptions hard-coded (for instance the size of the framebuffer, the windowing, the colourscheme, and the upper/lower cutoff frequencies of the FFT). Changing these involves at least editing some header file and recompiling, and may break the code. Some of these may be broken out to the config file in the future.

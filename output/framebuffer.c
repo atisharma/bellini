@@ -26,6 +26,7 @@
 #include "debug.h"
 #include "framebuffer.h"
 
+#include <unistd.h>
 
 void fb_setup() {
     vinfo.grayscale = 0;

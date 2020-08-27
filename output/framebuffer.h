@@ -3,6 +3,8 @@
 #include <linux/fb.h>
 #include <inttypes.h>
 
+#define CSI "\e["
+
 struct fb_fix_screeninfo finfo;
 struct fb_var_screeninfo vinfo;
 uint8_t *fbp;

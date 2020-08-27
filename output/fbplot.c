@@ -60,11 +60,10 @@ void bf_set_pixel(buffer buff, uint32_t x, uint32_t y, rgba c) {
 
 void bf_clear(const buffer buff) {
     memset(buff.pixels, 0, sizeof(pixel) * buff.size);
-    /*
-    for (uint32_t i = 0; i < buff.size; i++) {
-        buff.pixels[i] = 0;
-    }
-    */
+}
+
+void bf_fill(const buffer buff, const rgba c) {
+    memset(buff.pixels, rgba_to_pixel(c), sizeof(pixel) * buff.size);
 }
 
 void bf_copy(const buffer buff1, const buffer buff2) {
@@ -162,11 +161,48 @@ void bf_draw_line(const buffer buff, uint32_t x0, uint32_t y0, uint32_t x1, uint
     }
 }
 
-void bf_plot_axes(const buffer buff, const axes ax, const rgba c) {
+void bf_xtick(const buffer buff, const axes ax, double x, const rgba c) {
+    uint32_t screen_x = ax.screen_w * (x - ax.x_min) / (ax.x_max - ax.x_min) + ax.screen_x;
+    bf_draw_line(buff, screen_x, ax.screen_y, screen_x, ax.screen_y + TICK_SIZE, c);
+}
+
+void bf_ytick(const buffer buff, const axes ax, double y, const rgba c) {
+    uint32_t screen_y = ax.screen_h * (y - ax.y_min) / (ax.y_max - ax.y_min) + ax.screen_y;
+    bf_draw_line(buff, ax.screen_x, screen_y, ax.screen_x + TICK_SIZE, screen_y, c);
+}
+
+void bf_plot_axes(const buffer buff, const axes ax, const rgba c1, const rgba c2) {
     // draw axes around a rectangle
     // outside bounds of ax
-    bf_draw_line(buff, ax.screen_x - 10, ax.screen_y - 1, ax.screen_x + ax.screen_w, ax.screen_y - 1, c);
-    bf_draw_line(buff, ax.screen_x - 1, ax.screen_y - 10, ax.screen_x - 1, ax.screen_y + ax.screen_h, c);
+    //bf_draw_line(buff, ax.screen_x - 10, ax.screen_y - 1, ax.screen_x + ax.screen_w, ax.screen_y - 1, c);
+    //bf_draw_line(buff, ax.screen_x - 1, ax.screen_y - 10, ax.screen_x - 1, ax.screen_y + ax.screen_h, c);
+
+    for (int n=ax.y_max; n>=ax.y_min; n-=20) {
+        // dB
+        bf_ytick(buff, ax, n, c1);
+    }
+
+    for (int n=1; n<10; n++) {
+        // powers of 10 Hz
+        bf_xtick(buff, ax, log10(n * 10), c1);
+        bf_xtick(buff, ax, log10(n * 100), c1);
+        bf_xtick(buff, ax, log10(n * 1000), c1);
+        bf_xtick(buff, ax, log10(n * 10000), c1);
+    }
+
+    // octaves around A4 (440)
+    axes ax2 = ax;
+    ax2.screen_y += 5;
+    bf_xtick(buff, ax2, log10(27.5), c2);
+    bf_xtick(buff, ax2, log10(55), c2);
+    bf_xtick(buff, ax2, log10(110), c2);
+    bf_xtick(buff, ax2, log10(220), c2);
+    bf_xtick(buff, ax2, log10(440), c2);
+    bf_xtick(buff, ax2, log10(440 * 2), c2);
+    bf_xtick(buff, ax2, log10(440 * 4), c2);
+    bf_xtick(buff, ax2, log10(440 * 8), c2);
+    bf_xtick(buff, ax2, log10(440 * 16), c2);
+    bf_xtick(buff, ax2, log10(440 * 32), c2);
 }
 
 void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t num_points, rgba c) {

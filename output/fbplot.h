@@ -14,6 +14,7 @@
 
 #define FRAMEBUFFER_WIDTH 800
 #define FRAMEBUFFER_HEIGHT 480
+#define TICK_SIZE 3
 
 typedef uint32_t rgb666;
 
@@ -66,6 +67,8 @@ void bf_render(buffer buff);
 
 void bf_clear(const buffer buff);
 
+void bf_fill(const buffer buff, const rgba c);
+
 void bf_copy(const buffer buff1, const buffer buff2);
 
 void bf_check_col(buffer buff);
@@ -82,6 +85,9 @@ void bf_grayscale(const buffer buff);
 
 void bf_draw_line(const buffer buff, uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1, rgba c);
 
-void bf_plot_axes(const buffer buff, const axes ax, const rgba c);
+void bf_xtick(const buffer buff, const axes ax, double x, const rgba c);
+void bf_ytick(const buffer buff, const axes ax, double y, const rgba c);
+
+void bf_plot_axes(const buffer buff, const axes ax, const rgba c1, const rgba c2);
 
 void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t num_points, rgba c);

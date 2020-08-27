@@ -3,6 +3,9 @@
 #define LEFT_CHANNEL 1
 #define RIGHT_CHANNEL 2
 
+#define LOWER_CUTOFF_FREQ 20
+#define UPPER_CUTOFF_FREQ 20000
+
 
 int window(int k, void *data);
 

@@ -22,8 +22,6 @@
 int window(int k, void *data) {
     struct audio_data *audio = (struct audio_data *)data;
 
-    // copy to double array?
-
     // detrend
     double l_start = audio->in_l[0];
     double l_end = audio->in_l[audio->FFTbufferSize - 1];
@@ -60,16 +58,14 @@ int *make_bins(int FFTbufferSize,
     double w = 1.0 / (FFTbufferSize * rate);
 
     // cutoff frequencies, three decades apart
-    double lower_cutoff = 20.0;
-    double upper_cutoff = 20000.0;
 
     // get total signal power in each bin,
     // and space bins logarithmically.
     // freq[i] = i * rate / FFTbufferSize;
     // so log[i](i) = log(freq[i] * FFTbufferSize / rate);
     // and log[i] equally spaced over bins
-    int imin = floor(lower_cutoff * FFTbufferSize / rate);
-    int imax = fmin(floor(upper_cutoff * FFTbufferSize / rate), (FFTbufferSize / 2 + 1));
+    int imin = floor(LOWER_CUTOFF_FREQ * FFTbufferSize / rate);
+    int imax = fmin(floor(UPPER_CUTOFF_FREQ * FFTbufferSize / rate), (FFTbufferSize / 2 + 1));
 
     for (n = 0; n < number_of_bins; n++)
         power[n] = 0.0;

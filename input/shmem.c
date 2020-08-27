@@ -58,12 +58,15 @@ void *input_shmem(void *data) {
     while (!audio->terminate) {
         // audio rate may change between songs (e.g. 44.1kHz to 96kHz)
         audio->rate = mmap_area->rate;
+        audio->running = mmap_area->running;
         buf_frames = mmap_area->buf_size / 2;
         audio->index = (audio->FFTbufferSize - mmap_area->buf_index / 2) % audio->FFTbufferSize;
         // reread 4x each buffer replacement (overlapping windows)
         // reread at 60fps
-        req.tv_nsec = 2.5e5 * buf_frames / mmap_area->rate;
-        req.tv_nsec = 1e8 / 119;
+        //req.tv_nsec = 2.5e5 * buf_frames / mmap_area->rate;
+        //req.tv_nsec = 1e8 / 119;
+        // this can go very fast with minimal performance impact
+        req.tv_nsec = 1e8 / 240;
         if (mmap_area->running) {
             write_to_fftw_input_buffers(mmap_area->buffer, buf_frames, audio);
             nanosleep(&req, NULL);

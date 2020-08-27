@@ -17,10 +17,11 @@ struct audio_data {
     double *in_r, *in_l;
     int format;
     unsigned int rate;
-    char *source; // alsa device, fifo path or pulse source
-    int im;       // input mode alsa, fifo or pulse
+    char *source;   // alsa device, fifo path or pulse source
+    int im;         // input mode alsa, fifo or pulse
     unsigned int channels;
-    int terminate; // shared variable used to terminate audio thread
+    int terminate;  // shared variable used to terminate audio thread
+    int running;    // for shmem input
     char error_message[1024];
 };
 

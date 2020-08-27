@@ -82,9 +82,6 @@
 #define GCC_UNUSED /* nothing */
 #endif
 
-#define LEFT_CHANNEL 1
-#define RIGHT_CHANNEL 2
-
 // struct termios oldtio, newtio;
 // int M = 8 * 1024;
 
@@ -166,9 +163,8 @@ int main(int argc, char **argv) {
     int *bars_left, *bars_right;
     int bars_mem[8192];
     int previous_frame[8192];
-    int sleep = 0;
-    int n, height, lines, width, c, rest, inAtty, fp, fptest, rc;
-    bool silence;
+    int n, lines, width, c, rest, inAtty, fp, fptest, rc;
+    //int height;
     // int cont = 1;
     // float temp;
     struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
@@ -204,7 +200,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     struct audio_data audio;
     memset(&audio, 0, sizeof(audio));
 
-    // framebuffer plotting
+    // framebuffer plotting init
     buffer buffer_final;
     bf_init(&buffer_final);
     bf_clear(buffer_final);
@@ -214,14 +210,15 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     buffer buffer_r;
     bf_init(&buffer_r);
     bf_clear(buffer_r);
+
     // left channel axes
     axes ax_l;
     ax_l.screen_x = 0;
     ax_l.screen_y = 0;
     ax_l.screen_w = FRAMEBUFFER_WIDTH - 1;
     ax_l.screen_h = FRAMEBUFFER_HEIGHT;
-    ax_l.x_min = 0;
-    ax_l.x_max = FRAMEBUFFER_WIDTH;
+    ax_l.x_min = log10(LOWER_CUTOFF_FREQ);
+    ax_l.x_max = log10(UPPER_CUTOFF_FREQ);
     ax_l.y_min = -120;    // dB
     ax_l.y_max = 0;
     // right channel axes
@@ -230,8 +227,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     ax_r.screen_y = 0;
     ax_r.screen_w = FRAMEBUFFER_WIDTH - 1;
     ax_r.screen_h = FRAMEBUFFER_HEIGHT;
-    ax_r.x_min = 0;
-    ax_r.x_max = FRAMEBUFFER_WIDTH;
+    ax_r.x_min = log10(LOWER_CUTOFF_FREQ);
+    ax_r.x_max = log10(UPPER_CUTOFF_FREQ);
     ax_r.y_min = -120;    // dB
     ax_r.y_max = 0;
 
@@ -240,11 +237,11 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     /*
     foreground = '#56ff00'		# P1
     foreground = '#8cff00'		# P2
-    foreground = '#ffb700' 	        # P3
-    foreground = '#d2ff00' 	        # P4
-    foreground = '#3300ff' 	        # P5
-    foreground = '#007bff' 	        # P6
-    foreground = '#b9ff00' 	        # P7
+    foreground = '#ffb700' 	    # P3
+    foreground = '#d2ff00' 	    # P4
+    foreground = '#3300ff' 	    # P5
+    foreground = '#007bff' 	    # P6
+    foreground = '#b9ff00' 	    # P7
     foreground = '#007bff'		# P11
     foreground = '#ffdc00'		# P12
     foreground = '#ff2100'		# P13
@@ -257,6 +254,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     */
     rgba plot_c_l   = {0xFF, 0xD2, 0x00, 0x00};
     rgba plot_c_r   = {0x00, 0xFF, 0x61, 0x00};
+    rgba ax_c       = {0x92, 0xFF, 0x00, 0x00};
+    rgba ax_c2      = {0xF2, 0x22, 0x10, 0x00};
 
 #ifndef NDEBUG
     int maxvalue = 0;
@@ -312,7 +311,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
         output_mode = p.om;
 
-        if (output_mode != OUTPUT_RAW) {
+        if ((output_mode != OUTPUT_RAW) || (output_mode != OUTPUT_FRAMEBUFFER)) {
             // Check if we're running in a tty
             inAtty = 0;
             if (strncmp(ttyname(0), "/dev/tty", 8) == 0 || strcmp(ttyname(0), "/dev/console") == 0)
@@ -322,7 +321,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             if (strncmp(ttyname(0), "/dev/ttys", 9) == 0)
                 inAtty = 0;
             if (inAtty) {
-                system("setfont champagne.psf  >/dev/null 2>&1");
+                //system("setfont champagne.psf  >/dev/null 2>&1");
                 system("setterm -blank 0");
             }
 
@@ -351,6 +350,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         audio.terminate = 0;
         audio.channels = 2;
         audio.index = 0;
+        audio.running = 1;
 
         audio.in_r = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
         audio.in_l = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
@@ -474,7 +474,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 fb_setup();
                 fb_clear();
                 width = ax_l.screen_w;
-                height = ax_l.screen_h;
+                //height = ax_l.screen_h;
                 break;
 #ifdef NCURSES
             // output: start ncurses mode
@@ -482,13 +482,13 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 init_terminal_ncurses(p.color, p.bcolor, p.col, p.bgcol, p.gradient,
                                       p.gradient_count, p.gradient_colors, &width, &lines);
                 // we have 8 times as much height due to using 1/8 block characters
-                height = lines * 8;
+                //height = lines * 8;
                 break;
 #endif
             case OUTPUT_NONCURSES:
                 get_terminal_dim_noncurses(&width, &lines);
                 init_terminal_noncurses(inAtty, p.col, p.bgcol, width, lines, p.bar_width);
-                height = (lines - 1) * 8;
+                //height = (lines - 1) * 8;
                 break;
 
             case OUTPUT_RAW:
@@ -524,9 +524,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 width = 256;
 
                 if (strcmp(p.data_format, "binary") == 0) {
-                    height = pow(2, p.bit_format) - 1;
+                    //height = pow(2, p.bit_format) - 1;
                 } else {
-                    height = p.ascii_range;
+                    //height = p.ascii_range;
                 }
                 break;
 
@@ -666,26 +666,10 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 // clear();
                 refresh();
 #endif
-
-                // process: check if input is present
-                silence = true;
-
-                for (n = 0; n < audio.FFTbufferSize; n++) {
-                    if (audio.in_l[n] || audio.in_r[n]) {
-                        silence = false;
-                        break;
-                    }
-                }
-
                 window(3, &audio);
 
-                if (silence)
-                    sleep++;
-                else
-                    sleep = 0;
-
                 // process: if input was present for the last 5 frames apply FFT to it
-                if (sleep < p.framerate * 5) {
+                if (audio.running) {
 
                     // process: execute FFT and sort frequency bands
                     fftw_execute(p_l);
@@ -707,9 +691,12 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
                 } else { //**if in sleep mode wait and continue**//
 #ifndef NDEBUG
-                    printw("no sound detected for 5 frames, going to sleep mode\n");
+                    printw("No sound, sleeping.\n");
 #endif
-                    // wait 0.1 sec, then check sound again.
+                    // show a clock, screensaver or something
+                    //fb_clear();
+
+                    // wait, then check if running again.
                     sleep_mode_timer.tv_sec = 0;
                     sleep_mode_timer.tv_nsec = 1e8;
                     nanosleep(&sleep_mode_timer, NULL);
@@ -739,15 +726,17 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     dB = 20 * log10(bars[n]);
                     peak_dB = fmax(dB, peak_dB);
                     ax_l.y_max = peak_dB;
-                    ax_l.y_min = p.noise_floor;
+                    ax_l.y_min = peak_dB + p.noise_floor;
                     ax_r.y_max = peak_dB;
-                    ax_r.y_min = p.noise_floor;
+                    ax_r.y_min = peak_dB + p.noise_floor;
+                    /*
                     if (output_mode != OUTPUT_FRAMEBUFFER) {
                         bars[n] = 0.9 * height * fmax((-dB + peak_dB) / p.noise_floor + 1.0, 0.0);
                     } else {
                         bars[n] = fmax((-dB + peak_dB) / p.noise_floor + 1.0, 0.0);
                         //printf("peak dB: %10.3f, dB: %10.3f\r", peak_dB, dB);
                     }
+                    */
 
 #ifndef NDEBUG
                     if (bars[n] < minvalue) {
@@ -779,6 +768,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 #ifdef NDEBUG
                 switch (output_mode) {
                 case OUTPUT_FRAMEBUFFER:
+                    // plotting to framebuffer
                     /*
                     bf_clear(buffer_l);
                     bf_clear(buffer_r);
@@ -792,6 +782,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     bf_shade(buffer_final, p.alpha);
                     bf_plot_data(buffer_final, ax_l, bars_right, number_of_bars/2, plot_c_r);
                     bf_plot_data(buffer_final, ax_r, bars_left, number_of_bars/2, plot_c_l);
+                    bf_plot_axes(buffer_final, ax_l, ax_c, ax_c2);
                     fb_vsync();
                     bf_blit(buffer_final);
                     //printf("%3.2f FPS\r", 1.0 / (time(NULL) - plot_time));
@@ -853,6 +844,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         fftw_free(out_l);
         fftw_destroy_plan(p_l);
         fftw_destroy_plan(p_r);
+
+        // free screen buffers
         bf_free_pixels(&buffer_l);
         bf_free_pixels(&buffer_r);
         bf_free_pixels(&buffer_final);
