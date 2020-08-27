@@ -12,8 +12,8 @@
  *  [x] plot(data -> image)                     # render plot data to array
  *  [ ] bars to be type double
  *  [x] remove noncurses output?
- *  [ ] remove raw output?
- *  [ ] remove bar style output
+ *  [x] remove raw output?
+ *  [x] remove bar style output
  *  [x] remove curses / tty output code
  *  [ ] plot raw audio signal (option)
  */
@@ -139,35 +139,22 @@ int main(int argc, char **argv) {
     // general: define variables
     pthread_t p_thread;
     int thr_id GCC_UNUSED;
-    int bars[8192];
     int *bars_left, *bars_right;
-    int previous_frame[8192];
     int n, c;
     struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
     struct timespec sleep_mode_timer = {.tv_sec = 0, .tv_nsec = 0};
     char configPath[PATH_MAX];
     char *usage = "\n\
 Usage : " PACKAGE " [options]\n\
-Visualize audio input in terminal. \n\
+Visualize audio input on the framebuffer. \n\
 \n\
 Options:\n\
 	-p          path to config file\n\
 	-v          print version\n\
 \n\
-Keys:\n\
-        Up        Increase noise floor\n\
-        Down      Decrease noise floor\n\
-        Left      Decrease number of bars\n\
-        Right     Increase number of bars\n\
-        r         Reload config\n\
-        c         Reload colors only\n\
-        f         Cycle foreground color\n\
-        b         Cycle background color\n\
-        q         Quit\n\
-\n\
 as of 0.4.0 all options are specified in config file, see in '/home/username/.config/champagne/' \n";
 
-    int number_of_bars = 25;
+    int number_of_bars = 25;    // bars per channel
     int sourceIsAuto = 1;
     double peak_dB = 0;
     double dB = 0;
@@ -179,12 +166,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     buffer buffer_final;
     bf_init(&buffer_final);
     bf_clear(buffer_final);
-    buffer buffer_l;
-    bf_init(&buffer_l);
-    bf_clear(buffer_l);
-    buffer buffer_r;
-    bf_init(&buffer_r);
-    bf_clear(buffer_r);
 
     // left channel axes
     axes ax_l;
@@ -414,7 +395,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             fb_clear();
 
             // too many bins is noisy
-            number_of_bars = ax_l.screen_w;
+            number_of_bars = ax_l.screen_w / 2;
 
             bool resizeTerminal = false;
 
@@ -462,14 +443,14 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                         audio.FFTbufferSize,
                         audio.rate,
                         out_l,
-                        number_of_bars / 2,
+                        number_of_bars,
                         LEFT_CHANNEL);
 
                     bars_right = make_bins(
                         audio.FFTbufferSize,
                         audio.rate,
                         out_r,
-                        number_of_bars / 2,
+                        number_of_bars,
                         RIGHT_CHANNEL);
 
                 } else { // if in sleep mode wait and continue
@@ -489,13 +470,12 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 // processing bars, after fft:
                 // TODO: move these to a new function in sigproc.c     !!!
                 for (n = 0; n < number_of_bars; n++) {
-                    dB = 20 * log10(fmax(bars_left[number_of_bars / 2 - n - 1], bars_right[n - number_of_bars / 2]));
+                    dB = 20 * log10(fmax(bars_left[n], bars_right[n]));
                     peak_dB = fmax(dB, peak_dB);
                     ax_l.y_max = peak_dB;
                     ax_l.y_min = peak_dB + p.noise_floor;
                     ax_r.y_max = peak_dB;
                     ax_r.y_min = peak_dB + p.noise_floor;
-
                 }
 
 #ifndef NDEBUG
@@ -506,29 +486,14 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 // output: draw processed input
 #ifdef NDEBUG
                 // plotting to framebuffer
-                /*
-                bf_clear(buffer_l);
-                bf_clear(buffer_r);
-                bf_plot_data(buffer_l, ax, bars_right, number_of_bars/2, plot_c_r);
-                bf_plot_data(buffer_r, ax, bars_left, number_of_bars/2, plot_c_l);
-                bf_blend(buffer_l, buffer_r, 0.5);
-                bf_shade(buffer_l, 2);
-                bf_blend(buffer_final, buffer_l, 0.5);
-                bf_shade(buffer_final, 2 * p.alpha);
-                */
                 bf_shade(buffer_final, p.alpha);
-                bf_plot_data(buffer_final, ax_l, bars_right, number_of_bars/2, plot_c_r);
-                bf_plot_data(buffer_final, ax_r, bars_left, number_of_bars/2, plot_c_l);
+                bf_plot_data(buffer_final, ax_l, bars_right, number_of_bars, plot_c_r);
+                bf_plot_data(buffer_final, ax_r, bars_left, number_of_bars, plot_c_l);
                 bf_plot_axes(buffer_final, ax_l, ax_c, ax_c2);
                 fb_vsync();
                 bf_blit(buffer_final);
-                //printf("%3.2f FPS\r", 1.0 / (time(NULL) - plot_time));
-                //plot_time = time(NULL);
-
 
 #endif
-
-                memcpy(previous_frame, bars, 8192 * sizeof(int));
 
                 // checking if audio thread has exited unexpectedly
                 if (audio.terminate == 1) {
@@ -560,8 +525,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         fftw_destroy_plan(p_r);
 
         // free screen buffers
-        bf_free_pixels(&buffer_l);
-        bf_free_pixels(&buffer_r);
         bf_free_pixels(&buffer_final);
 
         cleanup();
