@@ -1,11 +1,37 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 #include "debug.h"
 #include "framebuffer.h"
 #include "fbplot.h"
 
+
+FT_Library library;
+FT_Face face;
+
+
+void init_freetype() {
+    int error = FT_Init_FreeType(&library);
+
+    if (error) {
+        fprintf(stderr,"Freetype could not initialise.\n");
+    }
+
+    error = FT_New_Face(
+            library,
+            TEXT_FONT,
+            0,
+            &face);
+    if (error == FT_Err_Unknown_File_Format) {
+        fprintf(stderr,"Unsupported font format.\n");
+    } else if (error) {
+        fprintf(stderr,"Font can't be opened.\n");
+    }
+      
+} 
 
 rgb666 rgb_to_rgb666(rgba c) {
     rgb666 c2 = ((c.r >> 2) << 12) | ((c.g >> 2) << 6) | (c.b >> 2);
@@ -43,6 +69,7 @@ void bf_init(buffer *buff) {
     buff->size = buff->h * buff->w;
     debug("allocating new buffer pixels\n");
     buff->pixels = (pixel*)calloc(buff->size, sizeof(pixel));
+    init_freetype();
 }
 
 void bf_free_pixels(buffer *buff) {
@@ -141,9 +168,52 @@ void bf_grayscale(const buffer buff) {
 void bf_superpose(const buffer buff1, const buffer buff2) {
     // superpose buff2 over buff1 where buff2 is not 0
     for (uint32_t i = 0; i < buff1.size; i++) {
-        if (!buff2.pixels[i]) {
+        if (buff2.pixels[i]) {
             buff1.pixels[i] = buff2.pixels[i];
         }
+    }
+}
+
+void bf_text(buffer buff, char *text, int num_chars, int size, uint32_t x, uint32_t y, rgba c) {
+    // write text to buff
+    uint8_t w = 0;
+    int pen_x = 0;
+    //int pen_y;
+    int n, error;
+    rgba c_text = c;
+
+    error = FT_Set_Char_Size(
+            face,               /* handle to face object           */
+            0,                  /* char_width in 1/64th of points  */
+            size*64,            /* char_height in 1/64th of points */
+            DPI,                /* horizontal device resolution    */
+            DPI);               /* vertical device resolution      */
+
+    FT_GlyphSlot slot = face->glyph;
+
+    for (n = 0; n < num_chars; n++) {
+        /* load glyph image into the slot (erase previous one) */
+        error = FT_Load_Char(face, text[n], FT_LOAD_RENDER);
+        if (error)
+            continue;  /* ignore errors */
+
+        for (uint32_t dx=0; dx < slot->bitmap.width; dx++) {
+            for (uint32_t dy=0; dy < slot->bitmap.rows; dy++) {
+                w = (double)slot->bitmap.buffer[dy * slot->bitmap.pitch + dx];
+                c_text.r = (uint8_t)((c.r * w) / 255);
+                c_text.g = (uint8_t)((c.g * w) / 255);
+                c_text.b = (uint8_t)((c.b * w) / 255);
+                if (w != 0) {
+                    bf_set_pixel(buff,
+                            x + dx + (uint32_t)pen_x,
+                            (uint32_t)(slot->bitmap_top) - dy + y,
+                            c_text);
+                }
+            }
+        }
+
+        /* increment pen position */
+        pen_x += slot->advance.x >> 6;
     }
 }
 
@@ -192,7 +262,7 @@ void bf_plot_axes(const buffer buff, const axes ax, const rgba c1, const rgba c2
 
     // octaves around A4 (440)
     axes ax2 = ax;
-    ax2.screen_y += 5;
+    ax2.screen_y = ax2.screen_h - 10;
     bf_xtick(buff, ax2, log10(27.5), c2);
     bf_xtick(buff, ax2, log10(55), c2);
     bf_xtick(buff, ax2, log10(110), c2);
@@ -258,4 +328,3 @@ void bf_render(buffer buff) {
         }
     }
 }
-

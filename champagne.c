@@ -48,6 +48,7 @@
 #include "sigproc.h"
 #include "output/framebuffer.h"
 #include "output/fbplot.h"
+#include "output/clock.h"
 
 #ifdef __GNUC__
 // curses.h or other sources may already define
@@ -122,9 +123,11 @@ int main(int argc, char **argv) {
     pthread_t p_thread;
     int thr_id GCC_UNUSED;
     int *bins_left, *bins_right;
-    int n, c;
+    int n, c, l;
     struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
     struct timespec sleep_mode_timer = {.tv_sec = 0, .tv_nsec = 0};
+    time_t now;
+    char timestr[40];
     char configPath[PATH_MAX];
     char *usage = "\n\
 Usage : " PACKAGE " [options]\n\
@@ -148,6 +151,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     buffer buffer_final;
     bf_init(&buffer_final);
     bf_clear(buffer_final);
+    buffer clock;
+    bf_init(&clock);
+    bf_clear(clock);
 
     // left channel axes
     axes ax_l;
@@ -187,6 +193,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     rgba plot_c_r   = {0x00, 0xFF, 0x61, 0x00};
     rgba ax_c       = {0x92, 0xFF, 0x00, 0x00};
     rgba ax_c2      = {0xF2, 0x22, 0x10, 0x00};
+    rgba text_c     = {0xFF, 0x41, 0x00, 0x00};
 
     // general: console title
     printf("%c]0;%s%c", '\033', PACKAGE, '\007');
@@ -409,8 +416,14 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
                 } else { // if in sleep mode wait and continue
                     // show a clock, screensaver or something
-                    // for now, just fade
-                    bf_shade(buffer_final, 0.9999);
+                    // WARNING!!!
+                    // This section is showing strange order-dependent behaviour
+                    now = time(NULL);
+                    l = strftime(timestr, sizeof(timestr), "%H:%M", localtime(&now));
+                    bf_text(buffer_final, timestr, l, 48, 200, 200, text_c);
+                    l = strftime(timestr, sizeof(timestr), "%a, %d %B %Y", localtime(&now));
+                    bf_text(buffer_final, timestr, l, 12, 200, 80, text_c);
+                    bf_shade(buffer_final, 0.999);
                     fb_vsync();
                     bf_blit(buffer_final);
                     // wait, then check if running again.
@@ -474,6 +487,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
         // free screen buffers
         bf_free_pixels(&buffer_final);
+        bf_free_pixels(&clock);
 
         cleanup();
 

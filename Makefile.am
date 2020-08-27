@@ -10,8 +10,9 @@ M_CPPFLAGS = -DSYSTEM_LIBINIPARSER=@SYSTEM_LIBINIPARSER@
 
 bin_PROGRAMS = champagne
 champagne_SOURCES = champagne.c config.c input/common.c input/fifo.c input/shmem.c \
-               sigproc.c \
-	       output/framebuffer.c output/fbplot.c
+					sigproc.c \
+					output/framebuffer.c output/fbplot.c \
+					output/clock.c
 champagne_LDFLAGS = -L/usr/local/lib -Wl,-rpath /usr/local/lib
 champagne_CPPFLAGS = -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(VERSION)\" \
            -D_POSIX_SOURCE -D _POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE_EXTENDED
@@ -48,4 +49,6 @@ if !SYSTEM_LIBINIPARSER
     champagne_CPPFLAGS += -Iiniparser/src
 endif
 
-
+# freetype hack
+champagne_CPPFLAGS += -I/usr/include/freetype2 -I/usr/include
+champagne_LDFLAGS += -L/usr/lib -lfreetype

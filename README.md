@@ -33,6 +33,7 @@ Installing
 ----------
 
 Installation and compilation should be almost exactly the same as for CAVA. Please refer to those instructions.
+You also need freetype. On Debian, `ft2build.h` is found in `/usr/include/freetype2/` -- you may have to change Makefile.am to specify, until I work out how to use automake properly.
 
 For framebuffer output, the config file should contain only the following options:
 
