@@ -13,7 +13,7 @@ Champagne inherits CAVA's input support, so should work with Pulseaudio, fifo (m
 
 It probably introduces a number of bugs.
 
-I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a Pimoroni Hyperpixel 4.0 LCD screen in landscape orientation, and get a very smooth and responsive 60ps, using less than 50% on one core.
+I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a Pimoroni Hyperpixel 4.0 LCD screen in landscape orientation, and get a very smooth and responsive 60ps, using about 50% on one thread, and about 15% on the other.
 
 
 Features
@@ -23,7 +23,6 @@ Distinguishing features include:
 
 - an accurate two-channel power spectrum on log-log plot
 - windowing of the data using a (3, 3) [Kolmogorov-Zurbenko filter](https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Zurbenko_filter)
-- alpha smoothing of the power spectrum
 - axes mark off 20dB intervals (power) and powers of 10 / octaves (frequency)
 - noise floor truncation
 - left/right merged colour schemes
@@ -41,17 +40,15 @@ For framebuffer output, the config file should contain only the following option
 [general]
 # noise floor is dB from measured peak power
 noise_floor = -160
+framerate = 60
 
 [input]
 # only tested with squeezelite/shmem
 method = shmem
 source = /squeezelite-dc:a6:32:c0:5c:0d
 
-[output]
-method = framebuffer
-
 [smoothing]
-# alpha decay for alpha smoothing of the FFT and fading of the display
+# decay for the fading of the display
 alpha = 0.8
 ```
 
@@ -95,9 +92,9 @@ If the flashing cursor is annoying you, put
 
     @reboot echo "\e[?25l" > /dev/tty0
 
-in root's crontab.
+in root's crontab. This will kill your cursor.
 
 
 ## I'd like to change XYZ option
 
-Some assumptions hard-coded (for instance the size of the framebuffer, the windowing, the colourscheme, and the upper/lower cutoff frequencies of the FFT). Changing these involves at least editing some header file and recompiling, and may break the code. Some of these may be broken out to the config file in the future.
+Some assumptions are hard-coded (for instance the size of the framebuffer, the windowing, the colourscheme, and the upper/lower cutoff frequencies of the FFT). Changing these involves at least editing some header file and recompiling, and may break the code. Some of these may be broken out to the config file in the future.

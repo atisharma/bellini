@@ -1,20 +1,5 @@
 /*
  * TODO:
- *
- *  [x] fix loading correct config file
- *  [x] window(signal -> signal)                # time domain windowing (ZS)
- *  [x] window(signal -> signal)                # other window approaches
- *  [x] transform(signal -> power_spectrum)     # apply fft
- *  [ ] move transform, decay to sigproc.c
- *  [x] bin(power_spectrum -> histogram)        # gather fft in buckets (bars)
- *  [x] preplot(fft -> dB, freqs -> dB)         # turn fft data into plot data
- *  [x] render(image -> fb)                     # write array directly to framebuffer
- *  [x] plot(data -> image)                     # render plot data to array
- *  [ ] bars to be type double
- *  [x] remove noncurses output?
- *  [x] remove raw output?
- *  [x] remove bar style output
- *  [x] remove curses / tty output code
  *  [ ] plot raw audio signal (option)
  */
 
@@ -72,8 +57,6 @@
 #define GCC_UNUSED /* nothing */
 #endif
 
-// struct termios oldtio, newtio;
-// int M = 8 * 1024;
 
 // used by sig handler
 // whether we should reload the config or not
@@ -87,6 +70,7 @@ struct config_params p;
 
 fftw_complex *out_l, *out_r;
 fftw_plan p_l, p_r;
+
 
 // general: exit cleanly
 void cleanup(void) {
@@ -137,7 +121,7 @@ int main(int argc, char **argv) {
     // general: define variables
     pthread_t p_thread;
     int thr_id GCC_UNUSED;
-    int *bars_left, *bars_right;
+    int *bins_left, *bins_right;
     int n, c;
     struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
     struct timespec sleep_mode_timer = {.tv_sec = 0, .tv_nsec = 0};
@@ -175,20 +159,13 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     ax_l.x_max = log10(UPPER_CUTOFF_FREQ);
     ax_l.y_min = -120;    // dB
     ax_l.y_max = 0;
-    // right channel axes
-    axes ax_r;
-    ax_r.screen_x = 1;
-    ax_r.screen_y = 0;
-    ax_r.screen_w = FRAMEBUFFER_WIDTH - 1;
-    ax_r.screen_h = FRAMEBUFFER_HEIGHT;
-    ax_r.x_min = log10(LOWER_CUTOFF_FREQ);
-    ax_r.x_max = log10(UPPER_CUTOFF_FREQ);
-    ax_r.y_min = -120;    // dB
-    ax_r.y_max = 0;
 
-    //time_t plot_time = 0;
+    // right channel axes
+    axes ax_r = ax_l;
+    ax_r.screen_x = 1; // so l/r channels alternate pixels
 
     /*
+    // some nice phosphor colours
     foreground = '#56ff00'		# P1
     foreground = '#8cff00'		# P2
     foreground = '#ffb700' 	    # P3
@@ -211,10 +188,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     rgba ax_c       = {0x92, 0xFF, 0x00, 0x00};
     rgba ax_c2      = {0xF2, 0x22, 0x10, 0x00};
 
-#ifndef NDEBUG
-    int maxvalue = 0;
-    int minvalue = 0;
-#endif
     // general: console title
     printf("%c]0;%s%c", '\033', PACKAGE, '\007');
 
@@ -358,7 +331,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
             while (audio.rate == 0) {
                 req.tv_sec = 0;
-                req.tv_nsec = 1000000;
+                req.tv_nsec = 1e6;
                 nanosleep(&req, NULL);
                 n++;
                 if (n > 2000) {
@@ -369,7 +342,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 }
             }
             debug("got format: %d and rate %d\n", audio.format, audio.rate);
-            // audio.rate = 44100;
             break;
 #ifdef PORTAUDIO
         case INPUT_PORTAUDIO:
@@ -387,20 +359,16 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             fb_setup();
             fb_clear();
 
-            // too many bins is noisy
+            // alternating pixels for l/r channel
             number_of_bars = ax_l.screen_w / 2;
 
-            if (p.framerate <= 1) {
-                req.tv_sec = 1 / (float)p.framerate;
-            } else {
-                req.tv_sec = 0;
-                req.tv_nsec = 1e9 / (float)p.framerate;
-            }
+            req.tv_sec = 0;
+            req.tv_nsec = 1e9 / (float)p.framerate;
 
             bool breakMainLoop = false;
             while (!breakMainLoop) {
 
-                // may force reload through SIG
+                // may force reload through SIG1
                 if (should_reload) {
                     reloadConf = true;
                     breakMainLoop = true;
@@ -419,25 +387,20 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     reload_colors = 0;
                 }
 
-#ifndef NDEBUG
-                refresh();
-#endif
                 window(3, &audio);
 
-                if (audio.running) {
-
-                    // process: execute FFT and sort frequency bands
+                if (audio.running) { // execute FFT and integrate power
                     fftw_execute(p_l);
                     fftw_execute(p_r);
 
-                    bars_left = make_bins(
+                    bins_left = make_bins(
                         audio.FFTbufferSize,
                         audio.rate,
                         out_l,
                         number_of_bars,
                         LEFT_CHANNEL);
 
-                    bars_right = make_bins(
+                    bins_right = make_bins(
                         audio.FFTbufferSize,
                         audio.rate,
                         out_r,
@@ -447,7 +410,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 } else { // if in sleep mode wait and continue
                     // show a clock, screensaver or something
                     // for now, just fade
-                    bf_shade(buffer_final, 0.999);
+                    bf_shade(buffer_final, 0.9999);
                     fb_vsync();
                     bf_blit(buffer_final);
                     // wait, then check if running again.
@@ -460,7 +423,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
                 // set plotting axes
                 for (n = 0; n < number_of_bars; n++) {
-                    dB = 20 * log10(fmax(bars_left[n], bars_right[n]));
+                    dB = 20 * log10(fmax(bins_left[n], bins_right[n]));
                     peak_dB = fmax(dB, peak_dB);
                     ax_l.y_max = peak_dB;
                     ax_l.y_min = peak_dB + p.noise_floor;
@@ -468,24 +431,18 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     ax_r.y_min = peak_dB + p.noise_floor;
                 }
 
-#ifndef NDEBUG
-                mvprintw(n + 2, 0, "min value: %d\n", minvalue); // checking maxvalue 10000
-                mvprintw(n + 3, 0, "max value: %d\n", maxvalue); // checking maxvalue 10000
-#endif
 
-// output: draw processed input
 #ifdef NDEBUG
-                // plotting to framebuffer
+                // plot to framebuffer
                 bf_shade(buffer_final, p.alpha);
-                bf_plot_data(buffer_final, ax_l, bars_right, number_of_bars, plot_c_r);
-                bf_plot_data(buffer_final, ax_r, bars_left, number_of_bars, plot_c_l);
+                bf_plot_data(buffer_final, ax_l, bins_right, number_of_bars, plot_c_r);
+                bf_plot_data(buffer_final, ax_r, bins_left, number_of_bars, plot_c_l);
                 bf_plot_axes(buffer_final, ax_l, ax_c, ax_c2);
                 fb_vsync();
                 bf_blit(buffer_final);
-
 #endif
 
-                // checking if audio thread has exited unexpectedly
+                // check if audio thread has exited unexpectedly
                 if (audio.terminate == 1) {
                     cleanup();
                     fprintf(stderr, "Audio thread exited unexpectedly. %s\n", audio.error_message);
@@ -495,9 +452,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 nanosleep(&req, NULL);
             }
 
-        } // reloading config
+        } // reload config
         req.tv_sec = 0;
-        req.tv_nsec = 1000; // waiting some time to make sure audio is ready
+        req.tv_nsec = 1000; // wait some time to make sure audio is ready
         nanosleep(&req, NULL);
 
         // tell input thread to terminate

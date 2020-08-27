@@ -12,6 +12,7 @@ int write_to_fftw_input_buffers(int16_t buf[], int16_t frames, void *data) {
 
     for (uint16_t i = 0; i < frames * 2; i += 2) {
         // stereo storing channels in buffer
+        // sadly I don't know how to memcpy every other element
         audio->in_l[audio->index] = buf[i];
         audio->in_r[audio->index] = buf[i + 1];
 
