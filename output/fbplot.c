@@ -14,7 +14,7 @@ FT_Library library;
 FT_Face face;
 
 
-void init_freetype() {
+void init_freetype(char *font) {
     int error = FT_Init_FreeType(&library);
 
     if (error) {
@@ -23,7 +23,7 @@ void init_freetype() {
 
     error = FT_New_Face(
             library,
-            TEXT_FONT,
+            font,
             0,
             &face);
     if (error == FT_Err_Unknown_File_Format) {
@@ -70,7 +70,6 @@ void bf_init(buffer *buff) {
     buff->size = buff->h * buff->w;
     debug("allocating new buffer pixels\n");
     buff->pixels = (pixel*)calloc(buff->size, sizeof(pixel));
-    init_freetype();
 }
 
 void bf_free_pixels(buffer *buff) {

@@ -203,18 +203,22 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
         return validate_colors(p, error);
     }
 
-    p->alpha = iniparser_getdouble(ini, "smoothing:alpha", 0.8);
+    // config: general
+    p->alpha = iniparser_getdouble(ini, "general:alpha", 0.95);
 
     if (!load_colors(p, ini)) {
         return false;
     }
 
-    p->framerate = iniparser_getint(ini, "general:framerate", 60);
-    p->noise_floor = iniparser_getint(ini, "general:noise_floor", -60);
+    p->noise_floor = iniparser_getint(ini, "general:noise_floor", -100);
+    
+    free(p->font);
+    p->font = strdup(iniparser_getstring(ini, "general:font", "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"));
 
     // config: output
     free(p->audio_source);
 
+    // config: input
     char *input_method_name;
     for (size_t i = 0; i < ARRAY_SIZE(default_methods); i++) {
         enum input_method method = default_methods[i];

@@ -16,7 +16,6 @@
 #define FRAMEBUFFER_HEIGHT 480
 #define DPI 231
 #define TICK_SIZE 3
-#define TEXT_FONT "/home/pi/champagne/fonts/digital-7/digital-7.ttf"
 
 
 typedef uint32_t rgb666;
@@ -59,6 +58,7 @@ rgba rgb666_to_rgba(rgb666 c);
 
 rgba tinge_color(rgba c1, rgba c2, double alpha);
 
+void init_freetype(char *font);
 void bf_init(buffer *buff);
 void bf_free_pixels(buffer *buff);
 

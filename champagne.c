@@ -1,7 +1,6 @@
 /*
  * TODO:
  *  [ ] plot raw audio signal (option)
- *  [ ] remove psf font
  *  [ ] settle on / configure a ttf font
  */
 
@@ -246,6 +245,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             fprintf(stderr, "Error loading config. %s", error.message);
             exit(EXIT_FAILURE);
         }
+
+        // config: font
+        init_freetype(p.font);
 
         // input: init
         audio.source = malloc(1 + strlen(p.audio_source));

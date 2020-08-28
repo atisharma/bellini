@@ -44,13 +44,11 @@ enum input_method {
 };
 
 struct config_params {
-    char *color, *bcolor, *audio_source;
+    char *color, *bcolor, *audio_source, *font;
     double alpha, noise_floor;
     double *userEQ;
     enum input_method im;
-    int col, bgcol,
-        framerate,
-        fifoSample, fifoSampleBits;
+    int col, bgcol, fifoSample, fifoSampleBits;
 };
 
 struct error_s {

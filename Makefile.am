@@ -21,8 +21,6 @@ if OSX
     champagne_CFLAGS += -DNORT
 else
     champagne_LDFLAGS += -lrt
-    champagne_font_dir = @FONT_DIR@
-    champagne_font__DATA = champagne.psf
 endif
 
 if ALSA
