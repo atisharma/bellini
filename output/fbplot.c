@@ -49,7 +49,7 @@ rgba rgb666_to_rgba(rgb666 c) {
 
 uint8_t clamp(double c) {
     // prevent overflow
-    return (uint8_t)fmin(255, fmax(0, c));
+    return (uint8_t)min(255, max(0, c));
 }
 
 rgba tinge_color(rgba c1, rgba c2, double alpha) {
@@ -127,16 +127,25 @@ void bf_blend(const buffer buff1, const buffer buff2, double alpha) {
 void bf_shade(const buffer buff, double alpha) {
     // shade buffer into black (alpha < 1.0) or brighter (alpha > 1.0)
     // buff = alpha*buff
-    rgba c;
+    register int r, g, b, a;
+    register pixel p;
     for (uint32_t i = 0; i < buff.size; i++) {
         // separate channels
-        c = pixel_to_rgba(buff.pixels[i]);
+        p = buff.pixels[i];
+        r = (p >> vinfo.red.offset) & 0xFF;
+        g = (p >> vinfo.green.offset) & 0xFF;
+        b = (p >> vinfo.blue.offset) & 0xFF;
+        a = (p >> vinfo.transp.offset) & 0xFF;
         // blend
-        c.r = clamp(alpha * c.r);
-        c.g = clamp(alpha * c.g);
-        c.b = clamp(alpha * c.b);
-        c.a = clamp(alpha * c.a);
-        buff.pixels[i] = rgba_to_pixel(c);
+        r = (int)(alpha * r);
+        g = (int)(alpha * g);
+        b = (int)(alpha * b);
+        a = (int)(alpha * a);
+        p = (r << vinfo.red.offset) |
+            (g << vinfo.green.offset) |
+            (b << vinfo.blue.offset) |
+            (a << vinfo.transp.offset);
+        buff.pixels[i] = p;
     }
 }
 
@@ -178,7 +187,7 @@ void bf_superpose(const buffer buff1, const buffer buff2) {
 
 void bf_text(buffer buff, char *text, int num_chars, int size, int center, uint32_t x, uint32_t y, rgba c) {
     // Write text to buff.
-    uint8_t w = 0;
+    int w = 0;
     int pen_x = 0;
     int width = 0;
     //int pen_y;
@@ -215,10 +224,10 @@ void bf_text(buffer buff, char *text, int num_chars, int size, int center, uint3
         for (uint32_t dx=0; dx < slot->bitmap.width; dx++) {
             for (uint32_t dy=0; dy < slot->bitmap.rows; dy++) {
                 // use grayscale hinting because text may be any colour
-                w = (double)slot->bitmap.buffer[dy * slot->bitmap.pitch + dx];
-                c_text.r = (uint8_t)((c.r * w) / 255);
-                c_text.g = (uint8_t)((c.g * w) / 255);
-                c_text.b = (uint8_t)((c.b * w) / 255);
+                w = slot->bitmap.buffer[dy * slot->bitmap.pitch + dx];
+                c_text.r = (uint8_t)(c.r * w >> 8);
+                c_text.g = (uint8_t)(c.g * w >> 8);
+                c_text.b = (uint8_t)(c.b * w >> 8);
                 if (w != 0) {
                     // render to temp buffer
                     bf_set_pixel(buff,
@@ -294,33 +303,31 @@ void bf_plot_axes(const buffer buff, const axes ax, const rgba c1, const rgba c2
 
 void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t num_points, rgba c) {
     // plot some data to the buffer
-    uint32_t x, y;
-    double s;
-    //uint32_t xm = ax.screen_x;
-    //uint32_t ym = (uint32_t)(ax.screen_h * (20 * log10(data[0]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
+    register uint32_t x, y, dy;
+    //register int s;
+    register int r, g, b, a;
+    register pixel p;
     for (uint32_t i=1; i < num_points; i++) {
         y = (uint32_t)(ax.screen_h * (10 * log10(data[i]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
         if (y > ax.screen_y) {
             x = (uint32_t)((ax.screen_w * i) / num_points) + ax.screen_x;
-            /*
-            for (uint32_t dx=xm; dx < x; dx++) {
-                bf_draw_line(buff, dx, ax.screen_y, dx, y, c);
-            }
-            xm = x;
-            ym = y;
-            */
-            for (uint32_t dy = ax.screen_y; dy < y; dy ++) {
-                s = 1.1 * (double)(dy - ax.screen_y) / (double)ax.screen_h;
-                rgba c2 = {clamp(c.r * s), clamp(c.g * s), clamp(c.b * s), clamp(c.a * s)};
-                bf_set_pixel(buff, x, dy, c2);
-            }
+            // draw peaks
             bf_set_pixel(buff, x,   y,   c);
-            /*
-            bf_set_pixel(buff, x-1, y,   c);
-            bf_set_pixel(buff, x+1, y,   c);
-            bf_set_pixel(buff, x,   y+1, c);
-            bf_set_pixel(buff, x,   y-1, c);
-            */
+            // draw faded lines up to y
+            // raw pixels for speed
+            for (dy = ax.screen_y; dy < y; dy ++) {
+                r = (c.r * (dy - ax.screen_y) / ax.screen_h);
+                g = (c.g * (dy - ax.screen_y) / ax.screen_h);
+                b = (c.b * (dy - ax.screen_y) / ax.screen_h);
+                a = (c.a * (dy - ax.screen_y) / ax.screen_h);
+                if ((x < buff.w) && (y < buff.h)) {
+                    p = (r << vinfo.red.offset) |
+                        (g << vinfo.green.offset) |
+                        (b << vinfo.blue.offset) |
+                        (a << vinfo.transp.offset);
+                    buff.pixels[dy * buff.w + x] = p;
+                }
+            }
         }
     }
 }

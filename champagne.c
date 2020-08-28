@@ -128,8 +128,10 @@ int main(int argc, char **argv) {
     struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
     struct timespec sleep_mode_timer = {.tv_sec = 0, .tv_nsec = 0};
     time_t now;
-    char timestr[40];
-    char audiostr[40];
+    clock_t fps_timer = 0;
+    clock_t last_fps_timer = 0;
+    double fps = 0;
+    char textstr[40];
     char configPath[PATH_MAX];
     char *usage = "\n\
 Usage : " PACKAGE " [options]\n\
@@ -143,8 +145,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
     int number_of_bars = 25;    // bars per channel
     int sourceIsAuto = 1;
-    double peak_dB = -10;
-    double dB = -100;
+    double peak_dB = -10.0;
+    double dB = -100.0;
+    int timer = 0;
 
     struct audio_data audio;
     memset(&audio, 0, sizeof(audio));
@@ -195,8 +198,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     buffer buffer_final;
     bf_init(&buffer_final);
     bf_clear(buffer_final);
-    buffer clock;
-    bf_init(&clock);
+    buffer buffer_clock;
+    bf_init(&buffer_clock);
 
     // general: console title
     printf("%c]0;%s%c", '\033', PACKAGE, '\007');
@@ -372,9 +375,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             // alternating pixels for l/r channel
             number_of_bars = ax_l.screen_w / 2;
 
-            req.tv_sec = 0;
-            req.tv_nsec = 1e9 / (float)p.framerate;
-
             bool breakMainLoop = false;
             while (!breakMainLoop) {
 
@@ -419,13 +419,13 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 } else { // if in sleep mode wait and continue
                     // show a clock, screensaver or something
 #ifdef NDEBUG
-                    bf_clear(clock);
-                    now = time(NULL);
-                    l = strftime(timestr, sizeof(timestr), "%H:%M", localtime(&now));
-                    bf_text(clock, timestr, l, 64, true, 0, 200, text_c);
-                    l = strftime(timestr, sizeof(timestr), "%a, %d %B %Y", localtime(&now));
-                    bf_text(clock, timestr, l, 14, true, 0, 80, text_c);
-                    bf_blend(buffer_final, clock, 0.97);
+                    bf_clear(buffer_clock);
+                    time(&now);
+                    l = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
+                    bf_text(buffer_clock, textstr, l, 64, true, 0, 200, text_c);
+                    l = strftime(textstr, sizeof(textstr), "%a, %d %B %Y", localtime(&now));
+                    bf_text(buffer_clock, textstr, l, 14, true, 0, 80, text_c);
+                    bf_blend(buffer_final, buffer_clock, 0.98);
                     fb_vsync();
                     bf_blit(buffer_final);
 #endif
@@ -435,7 +435,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     nanosleep(&sleep_mode_timer, NULL);
                     continue;
                 }
-
 
                 // set plotting axes
                 for (n = 0; n < number_of_bars; n++) {
@@ -447,27 +446,42 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     ax_r.y_min = peak_dB + p.noise_floor;
                 }
 
-
 #ifdef NDEBUG
                 // plot to framebuffer
                 bf_shade(buffer_final, p.alpha);
-                sprintf(audiostr, "%4.1fkHz", (double)audio.rate / 1000);
-                bf_text(buffer_final, audiostr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - 150, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
+                // plot spectrum
                 bf_plot_data(buffer_final, ax_l, bins_right, number_of_bars, plot_c_r);
                 bf_plot_data(buffer_final, ax_r, bins_left, number_of_bars, plot_c_l);
                 bf_plot_axes(buffer_final, ax_l, ax_c, ax_c2);
+                last_fps_timer = fps_timer;
+                fps_timer = clock();
+                fps = fps * 0.97 + (1.0 - 0.97) * CLOCKS_PER_SEC / (double)(fps_timer - last_fps_timer);
+                time(&now);
+                timer ++;
+                timer %= (20 * (int)fps);
+                if (timer > (1 * (int)fps)) {
+                    // show FPS
+                    sprintf(textstr, "%3.0ffps", fps);
+                    bf_text(buffer_final, textstr, 6, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
+                } else if (timer > (2 * (int)fps)) {
+                    // sampling rate
+                    sprintf(textstr, "%4.1fkHz", (double)audio.rate / 1000);
+                    bf_text(buffer_final, textstr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
+                } else {
+                    // little clock
+                    l = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
+                    bf_text(buffer_final, textstr, l, 10, false, ax_l.screen_x + ax_l.screen_w - 100, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
+                }
+                // blit
                 fb_vsync();
                 bf_blit(buffer_final);
 #endif
-
                 // check if audio thread has exited unexpectedly
                 if (audio.terminate == 1) {
                     cleanup();
                     fprintf(stderr, "Audio thread exited unexpectedly. %s\n", audio.error_message);
                     exit(EXIT_FAILURE);
                 }
-
-                nanosleep(&req, NULL);
             }
 
             cleanup();
@@ -497,5 +511,5 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
     // free screen buffers
     bf_free_pixels(&buffer_final);
-    bf_free_pixels(&clock);
+    bf_free_pixels(&buffer_clock);
 }

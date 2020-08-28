@@ -13,7 +13,8 @@ Champagne inherits CAVA's input support, so should work with Pulseaudio, fifo (m
 
 It probably introduces a number of bugs.
 
-I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a Pimoroni Hyperpixel 4.0 LCD screen in landscape orientation, and get a very smooth and responsive 60ps, using about 50% on one thread, and about 15% on the other.
+I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a Pimoroni Hyperpixel 4.0 LCD screen in landscape orientation, and get a smooth average near the full 60fps, using about 50% on one thread, and about 10-15% on the other.
+CPU usage could be improved by further optimisation or sacrificing visual effects.
 
 
 Features
