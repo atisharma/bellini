@@ -459,11 +459,11 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 time(&now);
                 timer ++;
                 timer %= (20 * (int)fps);
-                if (timer > (1 * (int)fps)) {
+                if (timer > (16 * (int)fps)) {
                     // show FPS
                     sprintf(textstr, "%3.0ffps", fps);
                     bf_text(buffer_final, textstr, 6, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
-                } else if (timer > (2 * (int)fps)) {
+                } else if (timer > (12 * (int)fps)) {
                     // sampling rate
                     sprintf(textstr, "%4.1fkHz", (double)audio.rate / 1000);
                     bf_text(buffer_final, textstr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
