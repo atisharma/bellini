@@ -129,6 +129,7 @@ int main(int argc, char **argv) {
     struct timespec sleep_mode_timer = {.tv_sec = 0, .tv_nsec = 0};
     time_t now;
     char timestr[40];
+    char audiostr[40];
     char configPath[PATH_MAX];
     char *usage = "\n\
 Usage : " PACKAGE " [options]\n\
@@ -182,11 +183,13 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     foreground = '#ffdf00'		# P19
     foreground = '#b3ff00'		# P20
     */
-    rgba plot_c_l   = {0xFF, 0xD2, 0x00, 0x00};
+    rgba plot_c_l   = {0xFF, 0x51, 0x00, 0x00};
     rgba plot_c_r   = {0x00, 0xFF, 0x61, 0x00};
     rgba ax_c       = {0x92, 0xFF, 0x00, 0x00};
-    rgba ax_c2      = {0xF2, 0x22, 0x10, 0x00};
+    rgba ax_c2      = {0xFF, 0x51, 0x10, 0x00};
     rgba text_c     = {0xFF, 0x51, 0x00, 0x00};
+    //rgba audio_c    = {0x00, 0x07, 0xFF, 0x00};
+    rgba audio_c = text_c;
 
     // framebuffer plotting init
     buffer buffer_final;
@@ -415,6 +418,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
                 } else { // if in sleep mode wait and continue
                     // show a clock, screensaver or something
+#ifdef NDEBUG
                     bf_clear(clock);
                     now = time(NULL);
                     l = strftime(timestr, sizeof(timestr), "%H:%M", localtime(&now));
@@ -424,6 +428,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     bf_blend(buffer_final, clock, 0.97);
                     fb_vsync();
                     bf_blit(buffer_final);
+#endif
                     // wait, then check if running again.
                     sleep_mode_timer.tv_sec = 0;
                     sleep_mode_timer.tv_nsec = 1e8;
@@ -446,6 +451,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 #ifdef NDEBUG
                 // plot to framebuffer
                 bf_shade(buffer_final, p.alpha);
+                sprintf(audiostr, "%4.1fkHz", (double)audio.rate / 1000);
+                bf_text(buffer_final, audiostr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - 150, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
                 bf_plot_data(buffer_final, ax_l, bins_right, number_of_bars, plot_c_r);
                 bf_plot_data(buffer_final, ax_r, bins_left, number_of_bars, plot_c_l);
                 bf_plot_axes(buffer_final, ax_l, ax_c, ax_c2);
