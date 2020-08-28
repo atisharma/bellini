@@ -21,6 +21,7 @@
 // apply window in-place on audio data
 int window(int k, void *data) {
     struct audio_data *audio = (struct audio_data *)data;
+    double temp[audio->FFTbufferSize];
 
     // detrend
     double l_start = audio->in_l[0];
@@ -34,9 +35,13 @@ int window(int k, void *data) {
     
     // Kolmogorov-Zurbenko (k, m=3) filter: repeated average of buffers
     for (int ki = 0; ki < k; ki++) {
+        memcpy(temp, audio->in_l, sizeof(double) * audio->FFTbufferSize);
         for (int i = 1; i < audio->FFTbufferSize; i++) {    // careful with bounds checking for m
-            audio->in_l[i] = (audio->in_l[i-1] + audio->in_l[i] + audio->in_l[i+1]) / 3.0;
-            audio->in_r[i] = (audio->in_r[i-1] + audio->in_r[i] + audio->in_r[i+1]) / 3.0;
+            audio->in_l[i] = (temp[i-1] + temp[i] + temp[i+1]) / 3.0;
+        }
+        memcpy(temp, audio->in_r, sizeof(double) * audio->FFTbufferSize);
+        for (int i = 1; i < audio->FFTbufferSize; i++) {    // careful with bounds checking for m
+            audio->in_r[i] = (temp[i-1] + temp[i] + temp[i+1]) / 3.0;
         }
     }
     return 0;

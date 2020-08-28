@@ -1,6 +1,8 @@
 /*
  * TODO:
  *  [ ] plot raw audio signal (option)
+ *  [ ] remove psf font
+ *  [ ] settle on / configure a ttf font
  */
 
 #include <locale.h>
@@ -140,18 +142,11 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
     int number_of_bars = 25;    // bars per channel
     int sourceIsAuto = 1;
-    double peak_dB = 0;
-    double dB = 0;
+    double peak_dB = -10;
+    double dB = -100;
 
     struct audio_data audio;
     memset(&audio, 0, sizeof(audio));
-
-    // framebuffer plotting init
-    buffer buffer_final;
-    bf_init(&buffer_final);
-    bf_clear(buffer_final);
-    buffer clock;
-    bf_init(&clock);
 
     // left channel axes
     axes ax_l;
@@ -192,6 +187,13 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     rgba ax_c       = {0x92, 0xFF, 0x00, 0x00};
     rgba ax_c2      = {0xF2, 0x22, 0x10, 0x00};
     rgba text_c     = {0xFF, 0x51, 0x00, 0x00};
+
+    // framebuffer plotting init
+    buffer buffer_final;
+    bf_init(&buffer_final);
+    bf_clear(buffer_final);
+    buffer clock;
+    bf_init(&clock);
 
     // general: console title
     printf("%c]0;%s%c", '\033', PACKAGE, '\007');
@@ -384,7 +386,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     struct error_s error;
                     error.length = 0;
                     if (!load_config(configPath, (void *)&p, 1, &error)) {
-                        cleanup();
                         fprintf(stderr, "Error loading config. %s", error.message);
                         exit(EXIT_FAILURE);
                     }
@@ -417,9 +418,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     bf_clear(clock);
                     now = time(NULL);
                     l = strftime(timestr, sizeof(timestr), "%H:%M", localtime(&now));
-                    bf_text(clock, timestr, l, 48, 200, 200, text_c);
+                    bf_text(clock, timestr, l, 64, true, 0, 200, text_c);
                     l = strftime(timestr, sizeof(timestr), "%a, %d %B %Y", localtime(&now));
-                    bf_text(clock, timestr, l, 12, 200, 80, text_c);
+                    bf_text(clock, timestr, l, 14, true, 0, 80, text_c);
                     bf_blend(buffer_final, clock, 0.97);
                     fb_vsync();
                     bf_blit(buffer_final);
@@ -433,7 +434,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
                 // set plotting axes
                 for (n = 0; n < number_of_bars; n++) {
-                    dB = 20 * log10(fmax(bins_left[n], bins_right[n]));
+                    dB = 10 * log10(fmax(bins_left[n], bins_right[n]));
                     peak_dB = fmax(dB, peak_dB);
                     ax_l.y_max = peak_dB;
                     ax_l.y_min = peak_dB + p.noise_floor;
@@ -462,7 +463,10 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 nanosleep(&req, NULL);
             }
 
+            cleanup();
+
         } // reload config
+
         req.tv_sec = 0;
         req.tv_nsec = 1000; // wait some time to make sure audio is ready
         nanosleep(&req, NULL);
@@ -482,11 +486,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         fftw_destroy_plan(p_l);
         fftw_destroy_plan(p_r);
 
-        // free screen buffers
-        bf_free_pixels(&buffer_final);
-        bf_free_pixels(&clock);
+    } // config reload loop
 
-        cleanup();
-
-    }
+    // free screen buffers
+    bf_free_pixels(&buffer_final);
+    bf_free_pixels(&clock);
 }

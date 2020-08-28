@@ -16,7 +16,7 @@
 #define FRAMEBUFFER_HEIGHT 480
 #define DPI 231
 #define TICK_SIZE 3
-#define TEXT_FONT "output/font.ttf"
+#define TEXT_FONT "/home/pi/champagne/fonts/digital-7/digital-7.ttf"
 
 
 typedef uint32_t rgb666;
@@ -86,7 +86,7 @@ void bf_superpose(const buffer buff1, const buffer buff2);
 
 void bf_grayscale(const buffer buff);
 
-void bf_text(buffer buff, char *text, int num_chars, int size, uint32_t x, uint32_t y, rgba c);
+void bf_text(buffer buff, char *text, int num_chars, int center, int size, uint32_t x, uint32_t y, rgba c);
 
 void bf_draw_line(const buffer buff, uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1, rgba c);
 

@@ -23,7 +23,7 @@ Distinguishing features include:
 
 - an accurate two-channel power spectrum on log-log plot
 - windowing of the data using a (3, 3) [Kolmogorov-Zurbenko filter](https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Zurbenko_filter)
-- axes mark off 20dB intervals (power) and powers of 10 / octaves (frequency)
+- axes mark off 20dB intervals (amplitude) and powers of 10 / octaves (frequency)
 - noise floor truncation
 - left/right merged colour schemes
 - direct framebuffer output
@@ -39,8 +39,8 @@ For framebuffer output, the config file should contain only the following option
 
 ```
 [general]
-# noise floor is dB from measured peak power
-noise_floor = -160
+# noise floor is dB from measured peak amplitude
+noise_floor = -100
 framerate = 60
 
 [input]
@@ -89,7 +89,7 @@ If the flashing cursor is annoying you, put
 
     @reboot echo "\e[?25l" > /dev/tty0
 
-in root's crontab. This will kill your cursor.
+in root's crontab. This will kill your cursor (on tty0).
 
 
 ## I'd like to change XYZ option

@@ -7,6 +7,7 @@
 #include "debug.h"
 #include "framebuffer.h"
 #include "fbplot.h"
+#include "util.h"
 
 
 FT_Library library;
@@ -77,7 +78,7 @@ void bf_free_pixels(buffer *buff) {
 }
 
 void bf_set_pixel(buffer buff, uint32_t x, uint32_t y, rgba c) {
-    //DEBUG("i: %d\n", x * buff.h + y);
+    debug("i: %d\n", x * buff.h + y);
     if ((x < buff.w) && (y < buff.h)) {
         buff.pixels[y * buff.w + x] = rgba_to_pixel(c);
     } else {
@@ -90,6 +91,7 @@ void bf_clear(const buffer buff) {
 }
 
 void bf_fill(const buffer buff, const rgba c) {
+    // FIXME: write with stride of every fourth byte
     memset(buff.pixels, rgba_to_pixel(c), sizeof(pixel) * buff.size);
 }
 
@@ -174,10 +176,11 @@ void bf_superpose(const buffer buff1, const buffer buff2) {
     }
 }
 
-void bf_text(buffer buff, char *text, int num_chars, int size, uint32_t x, uint32_t y, rgba c) {
-    // write text to buff
+void bf_text(buffer buff, char *text, int num_chars, int size, int center, uint32_t x, uint32_t y, rgba c) {
+    // Write text to buff.
     uint8_t w = 0;
     int pen_x = 0;
+    int width = 0;
     //int pen_y;
     int n, error;
     rgba c_text = c;
@@ -191,6 +194,18 @@ void bf_text(buffer buff, char *text, int num_chars, int size, uint32_t x, uint3
 
     FT_GlyphSlot slot = face->glyph;
 
+    // get extent of the rendered text
+    for (n = 0; n < num_chars; n++) {
+        // Load glyph image into the slot (erasing previous one).
+        // We do this again in a minute, but they should be cached anyway.
+        error = FT_Load_Char(face, text[n], FT_LOAD_RENDER);
+        if (error)
+            continue;  /* ignore errors */
+        width += slot->advance.x >> 6;
+    }
+    if (center)
+        x = buff.w / 2 - (uint32_t)(width / 2);
+
     for (n = 0; n < num_chars; n++) {
         /* load glyph image into the slot (erase previous one) */
         error = FT_Load_Char(face, text[n], FT_LOAD_RENDER);
@@ -199,14 +214,16 @@ void bf_text(buffer buff, char *text, int num_chars, int size, uint32_t x, uint3
 
         for (uint32_t dx=0; dx < slot->bitmap.width; dx++) {
             for (uint32_t dy=0; dy < slot->bitmap.rows; dy++) {
+                // use grayscale hinting because text may be any colour
                 w = (double)slot->bitmap.buffer[dy * slot->bitmap.pitch + dx];
                 c_text.r = (uint8_t)((c.r * w) / 255);
                 c_text.g = (uint8_t)((c.g * w) / 255);
                 c_text.b = (uint8_t)((c.b * w) / 255);
                 if (w != 0) {
+                    // render to temp buffer
                     bf_set_pixel(buff,
                             x + dx + (uint32_t)pen_x,
-                            (uint32_t)(slot->bitmap_top) - dy + y,
+                            y + (uint32_t)(slot->bitmap_top) - dy,
                             c_text);
                 }
             }
@@ -282,7 +299,7 @@ void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t n
     //uint32_t xm = ax.screen_x;
     //uint32_t ym = (uint32_t)(ax.screen_h * (20 * log10(data[0]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
     for (uint32_t i=1; i < num_points; i++) {
-        y = (uint32_t)(ax.screen_h * (20 * log10(data[i]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
+        y = (uint32_t)(ax.screen_h * (10 * log10(data[i]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
         if (y > ax.screen_y) {
             x = (uint32_t)((ax.screen_w * i) / num_points) + ax.screen_x;
             /*
@@ -293,7 +310,7 @@ void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t n
             ym = y;
             */
             for (uint32_t dy = ax.screen_y; dy < y; dy ++) {
-                s = (double)(dy - ax.screen_y) / (double)ax.screen_h;
+                s = 1.1 * (double)(dy - ax.screen_y) / (double)ax.screen_h;
                 rgba c2 = {clamp(c.r * s), clamp(c.g * s), clamp(c.b * s), clamp(c.a * s)};
                 bf_set_pixel(buff, x, dy, c2);
             }
