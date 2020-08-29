@@ -35,7 +35,7 @@ Distinguishing features include:
 Installation and compilation should be almost exactly the same as for CAVA. Please refer to those instructions.
 You also need freetype. On Debian, `ft2build.h` is found in `/usr/include/freetype2/` -- you may have to change Makefile.am to specify, until I work out how to use automake properly.
 
-For framebuffer output, the config file should contain only the following options:
+The config file should contain the following options:
 
 ```
 [general]
@@ -51,6 +51,8 @@ method = shmem
 source = /squeezelite-dc:a6:32:c0:5c:0d
 
 ```
+
+The font option must be the full (not relative) path of the font file (look under /usr/share/fonts/).
 
 To use with a Hyperpixel 4.0, your `/boot/config.txt` should contain:
 
@@ -100,4 +102,3 @@ Some assumptions are hard-coded (for instance the size of the framebuffer, the w
 
 - Sometimes one of the channels disappears from the output.
 - Input other than squeezelite's shmem is untested and may be broken.
-- Sending SIGUSR1 to reload the config sometimes segfaults.

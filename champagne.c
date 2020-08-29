@@ -1,7 +1,6 @@
 /*
  * TODO:
  *  [ ] plot raw audio signal (option)
- *  [ ] settle on / configure a ttf font
  */
 
 #include <locale.h>
@@ -75,7 +74,6 @@ fftw_plan p_l, p_r;
 
 // general: exit cleanly
 void cleanup(void) {
-    fb_cleanup();
 }
 
 // general: handle signals
@@ -90,9 +88,9 @@ void sig_handler(int sig_no) {
         return;
     }
 
-    cleanup();
     if (sig_no == SIGINT) {
         printf("CTRL-C pressed -- goodbye\n");
+        fb_cleanup();
     }
     signal(sig_no, SIG_DFL);
     raise(sig_no);
@@ -194,6 +192,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     rgba audio_c = text_c;
 
     // framebuffer plotting init
+    fb_setup();
+    fb_clear();
+
     buffer buffer_final;
     bf_init(&buffer_final);
     bf_clear(buffer_final);
@@ -286,7 +287,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
             if (is_loop_device_for_sure(audio.source)) {
                 if (directory_exists("/sys/")) {
                     if (!directory_exists("/sys/module/snd_aloop/")) {
-                        cleanup();
+                        fb_cleanup();
                         fprintf(stderr,
                                 "Linux kernel module \"snd_aloop\" does not seem to  be loaded.\n"
                                 "Maybe run \"sudo modprobe snd_aloop\".\n");
@@ -306,7 +307,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 nanosleep(&req, NULL);
                 n++;
                 if (n > 2000) {
-                    cleanup();
+                    fb_cleanup();
                     fprintf(stderr, "could not get rate and/or format, problems with audio thread? "
                                     "quiting...\n");
                     exit(EXIT_FAILURE);
@@ -350,7 +351,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 nanosleep(&req, NULL);
                 n++;
                 if (n > 2000) {
-                    cleanup();
+                    fb_cleanup();
                     fprintf(stderr, "could not get rate and/or format, problems with audio thread? "
                                     "quiting...\n");
                     exit(EXIT_FAILURE);
@@ -370,9 +371,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
         bool reloadConf = false;
         while (!reloadConf) {
-
-            fb_setup();
-            fb_clear();
 
             // alternating pixels for l/r channel
             number_of_bars = ax_l.screen_w / 2;
@@ -418,7 +416,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                         number_of_bars,
                         RIGHT_CHANNEL);
 
-                } else { // if in sleep mode wait and continue
+                } else {
+                    // if in sleep mode wait and continue
                     // show a clock, screensaver or something
 #ifdef NDEBUG
                     bf_clear(buffer_clock);
@@ -457,10 +456,16 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 bf_plot_axes(buffer_final, ax_l, ax_c, ax_c2);
                 last_fps_timer = fps_timer;
                 fps_timer = clock();
-                fps = fps * 0.97 + (1.0 - 0.97) * CLOCKS_PER_SEC / (double)(fps_timer - last_fps_timer);
+                fps = fps * 0.99 + (1.0 - 0.99) * CLOCKS_PER_SEC / (double)(fps_timer - last_fps_timer);
+                /* debugging info
+                sprintf(textstr, "%+7.2f peak_dB", peak_dB);
+                bf_text(buffer_final, textstr, 15, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
+                sprintf(textstr, "%+7.2f noise_floor", p.noise_floor);
+                bf_text(buffer_final, textstr, 19, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 110, audio_c);
+                end debugging info */
                 time(&now);
                 timer ++;
-                timer %= (20 * (int)fps);
+                timer %= (20 * (int)fps);   // guess 20s
                 if (timer > (16 * (int)fps)) {
                     // show FPS
                     sprintf(textstr, "%3.0ffps", fps);
@@ -474,19 +479,17 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     l = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
                     bf_text(buffer_final, textstr, l, 10, false, ax_l.screen_x + ax_l.screen_w - 100, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
                 }
-                // blit
+                // sync and blit
                 fb_vsync();
                 bf_blit(buffer_final);
 #endif
                 // check if audio thread has exited unexpectedly
                 if (audio.terminate == 1) {
-                    cleanup();
+                    fb_cleanup();
                     fprintf(stderr, "Audio thread exited unexpectedly. %s\n", audio.error_message);
                     exit(EXIT_FAILURE);
                 }
             }
-
-            cleanup();
 
         } // reload config
 
@@ -514,4 +517,5 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     // free screen buffers
     bf_free_pixels(&buffer_final);
     bf_free_pixels(&buffer_clock);
+    fb_cleanup();
 }

@@ -128,22 +128,23 @@ void bf_shade(const buffer buff, double alpha) {
     // buff = alpha*buff
     register int r, g, b, a;
     register pixel p;
+    struct fb_var_screeninfo *vinfo = get_vinfo();
     for (uint32_t i = 0; i < buff.size; i++) {
         // separate channels
         p = buff.pixels[i];
-        r = (p >> vinfo.red.offset) & 0xFF;
-        g = (p >> vinfo.green.offset) & 0xFF;
-        b = (p >> vinfo.blue.offset) & 0xFF;
-        a = (p >> vinfo.transp.offset) & 0xFF;
+        r = (p >> vinfo->red.offset) & 0xFF;
+        g = (p >> vinfo->green.offset) & 0xFF;
+        b = (p >> vinfo->blue.offset) & 0xFF;
+        a = (p >> vinfo->transp.offset) & 0xFF;
         // blend
         r = (int)(alpha * r);
         g = (int)(alpha * g);
         b = (int)(alpha * b);
         a = (int)(alpha * a);
-        p = (r << vinfo.red.offset) |
-            (g << vinfo.green.offset) |
-            (b << vinfo.blue.offset) |
-            (a << vinfo.transp.offset);
+        p = (r << vinfo->red.offset) |
+            (g << vinfo->green.offset) |
+            (b << vinfo->blue.offset) |
+            (a << vinfo->transp.offset);
         buff.pixels[i] = p;
     }
 }
@@ -306,6 +307,7 @@ void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t n
     //register int s;
     register int r, g, b, a;
     register pixel p;
+    struct fb_var_screeninfo *vinfo = get_vinfo();
     for (uint32_t i=1; i < num_points; i++) {
         y = (uint32_t)(ax.screen_h * (10 * log10(data[i]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
         if (y > ax.screen_y) {
@@ -320,10 +322,10 @@ void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t n
                 b = (c.b * (dy - ax.screen_y) / ax.screen_h);
                 a = (c.a * (dy - ax.screen_y) / ax.screen_h);
                 if ((x < buff.w) && (y < buff.h)) {
-                    p = (r << vinfo.red.offset) |
-                        (g << vinfo.green.offset) |
-                        (b << vinfo.blue.offset) |
-                        (a << vinfo.transp.offset);
+                    p = (r << vinfo->red.offset) |
+                        (g << vinfo->green.offset) |
+                        (b << vinfo->blue.offset) |
+                        (a << vinfo->transp.offset);
                     buff.pixels[dy * buff.w + x] = p;
                 }
             }

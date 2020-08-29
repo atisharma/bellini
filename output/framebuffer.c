@@ -28,6 +28,14 @@
 
 #include <unistd.h>
 
+
+struct fb_fix_screeninfo finfo;
+struct fb_var_screeninfo vinfo;
+
+uint8_t *fbp;
+int fd;
+
+
 void fb_setup() {
     vinfo.grayscale = 0;
     vinfo.bits_per_pixel = 32;
@@ -42,6 +50,12 @@ int fb_cleanup() {
     fb_clear();
     return munmap(fbp, vinfo.yres * finfo.line_length);
 }
+
+
+struct fb_var_screeninfo *get_vinfo() {
+    return &vinfo;
+};
+
 
 uint32_t rgba_to_pixel(rgba c) {
     uint32_t pixel = (c.r << vinfo.red.offset)|

@@ -5,11 +5,6 @@
 
 #define CSI "\e["
 
-struct fb_fix_screeninfo finfo;
-struct fb_var_screeninfo vinfo;
-uint8_t *fbp;
-int fd;
-
 typedef uint32_t pixel;
 
 typedef struct  {
@@ -29,6 +24,8 @@ typedef struct {
 void fb_setup();
 
 int fb_cleanup();
+
+struct fb_var_screeninfo *get_vinfo();
 
 uint32_t rgba_to_pixel(rgba c);
 
