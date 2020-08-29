@@ -54,15 +54,13 @@ int *make_bins(int FFTbufferSize,
         fftw_complex out[FFTbufferSize / 2 + 1],
         int number_of_bins,
         int channel) {
-    int n, i;
+    register int n, i;
     double power[number_of_bins];
     static int bins_left[8192];
     static int bins_right[8192];
     int L = FFTbufferSize / 2 + 1;
     double y[L];
-    double w = 1.0 / (FFTbufferSize * rate);
-
-    // cutoff frequencies, three decades apart
+    register double w = 1.0 / (FFTbufferSize * rate);
 
     // get total signal power in each bin,
     // and space bins logarithmically.
@@ -72,31 +70,26 @@ int *make_bins(int FFTbufferSize,
     int imin = floor(LOWER_CUTOFF_FREQ * FFTbufferSize / rate);
     int imax = fmin(floor(UPPER_CUTOFF_FREQ * FFTbufferSize / rate), (FFTbufferSize / 2 + 1));
 
-    for (n = 0; n < number_of_bins; n++)
-        power[n] = 0.0;
+    memset(power, 0, sizeof(double) * number_of_bins);
 
     for (i = imin; i < imax; i++) {
-        // nearest bin
-        y[i] = out[i][0] * out[i][0] + out[i][1] * out[i][1];       // signal power
-        //n = floor(number_of_bins * (i - imin) / (imax - imin));     // linear bin spacing
-        n = number_of_bins * (log(i) - log(imin)) / log(imax / imin);     // log bin spacing
+        // signal power
+        y[i] = out[i][0] * out[i][0] + out[i][1] * out[i][1];
+        // log bin spacing, nearest bin
+        n = (int)(number_of_bins * (log(i) - log(imin)) / log(imax / imin));
         // integrating over bins, multiply by 1/f for log f ordinate
         power[n] += y[i] * w * imax / i;
     }
-    //power[n] /= (double)rate * L;
-    // normalise for FFT size, half-sided fft, and max value of 2 ** 16 -> 0dB
-    //power[n] *= 4.0 / FFTbufferSize; 
-    // printf("%d power o: %f : %f * k: %f = f: %f\n", o, power[o], temp);
 
-    for (n = 0; n < number_of_bins; n++) {
-        if (channel == LEFT_CHANNEL)
+    if (channel == LEFT_CHANNEL) {
+        for (n = 0; n < number_of_bins; n++) {
             bins_left[n] = power[n];
-        else
-            bins_right[n] = power[n];
-    }
-
-    if (channel == LEFT_CHANNEL)
+        }
         return bins_left;
-    else
+    } else {
+        for (n = 0; n < number_of_bins; n++) {
+            bins_right[n] = power[n];
+        }
         return bins_right;
+    }
 }

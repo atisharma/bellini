@@ -125,9 +125,9 @@ int main(int argc, char **argv) {
     struct timespec req = {.tv_sec = 0, .tv_nsec = 0};
     struct timespec sleep_mode_timer = {.tv_sec = 0, .tv_nsec = 0};
     time_t now;
-    clock_t fps_timer = 0;
-    clock_t last_fps_timer = 0;
-    double fps = 0;
+    clock_t fps_timer = 10;
+    clock_t last_fps_timer = 11;
+    double fps = 30;
     char textstr[40];
     char configPath[PATH_MAX];
     char *usage = "\n\
@@ -144,7 +144,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     int sourceIsAuto = 1;
     double peak_dB = -10.0;
     double dB = -100.0;
-    int timer = 0;
+    int frames_rendered = 0;
 
     struct audio_data audio;
     memset(&audio, 0, sizeof(audio));
@@ -187,8 +187,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     rgba plot_c_r   = {0x00, 0xFF, 0x61, 0x00};
     rgba ax_c       = {0x92, 0xFF, 0x00, 0x00};
     rgba ax_c2      = {0xFF, 0x51, 0x10, 0x00};
-    rgba text_c     = {0xFF, 0x51, 0x00, 0x00};
     //rgba audio_c    = {0x00, 0x07, 0xFF, 0x00};
+    rgba text_c     = {0xFF, 0x51, 0x00, 0x00};
     rgba audio_c = text_c;
 
     // framebuffer plotting init
@@ -396,9 +396,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     reload_colors = 0;
                 }
 
-                window(3, &audio);
-
                 if (audio.running) { // execute FFT and integrate power
+
+                    window(3, &audio);
                     fftw_execute(p_l);
                     fftw_execute(p_r);
 
@@ -451,26 +451,25 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 // plot to framebuffer
                 bf_shade(buffer_final, p.alpha);
                 // plot spectrum
-                bf_plot_data(buffer_final, ax_l, bins_right, number_of_bars, plot_c_r);
-                bf_plot_data(buffer_final, ax_r, bins_left, number_of_bars, plot_c_l);
+                bf_plot_data(buffer_final, ax_l, bins_right, number_of_bars, plot_c_l);
+                bf_plot_data(buffer_final, ax_r, bins_left, number_of_bars, plot_c_r);
                 bf_plot_axes(buffer_final, ax_l, ax_c, ax_c2);
                 last_fps_timer = fps_timer;
                 fps_timer = clock();
                 fps = fps * 0.99 + (1.0 - 0.99) * CLOCKS_PER_SEC / (double)(fps_timer - last_fps_timer);
                 /* debugging info
-                sprintf(textstr, "%+7.2f peak_dB", peak_dB);
-                bf_text(buffer_final, textstr, 15, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
-                sprintf(textstr, "%+7.2f noise_floor", p.noise_floor);
-                bf_text(buffer_final, textstr, 19, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 110, audio_c);
+                    sprintf(textstr, "%+7.2f peak_dB", peak_dB);
+                    bf_text(buffer_final, textstr, 15, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
+                    sprintf(textstr, "%+7.2f noise_floor", p.noise_floor);
+                    bf_text(buffer_final, textstr, 19, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 110, audio_c);
                 end debugging info */
                 time(&now);
-                timer ++;
-                timer %= (20 * (int)fps);   // guess 20s
-                if (timer > (16 * (int)fps)) {
+                frames_rendered++;
+                if (( (int)(frames_rendered / fps) % 20) > 15) {
                     // show FPS
                     sprintf(textstr, "%3.0ffps", fps);
                     bf_text(buffer_final, textstr, 6, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
-                } else if (timer > (12 * (int)fps)) {
+                } else if (( (int)(frames_rendered / fps) % 20) > 10) {
                     // sampling rate
                     sprintf(textstr, "%4.1fkHz", (double)audio.rate / 1000);
                     bf_text(buffer_final, textstr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, audio_c);

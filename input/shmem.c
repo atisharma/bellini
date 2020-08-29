@@ -44,8 +44,7 @@ void *input_shmem(void *data) {
     struct timespec req_silence = {.tv_sec = 0, .tv_nsec = 1e8};
 
     s16_t silence_buffer[VIS_BUF_SIZE];
-    for (int i = 0; i < VIS_BUF_SIZE; i++)
-        silence_buffer[i] = 0;
+    memset(silence_buffer, 0, sizeof(s16_t) * VIS_BUF_SIZE);
 
     debug("input_shmem: source: %s\n", audio->source);
 
@@ -66,7 +65,7 @@ void *input_shmem(void *data) {
         // audio rate may change between songs (e.g. 44.1kHz to 96kHz)
         audio->rate = mmap_area->rate;
         audio->running = mmap_area->running;
-        buf_frames = mmap_area->buf_size / 2;       // separate into two channels
+        buf_frames = mmap_area->buf_size / 2;       // there are two channels
         audio->index = (audio->FFTbufferSize - mmap_area->buf_index / 2) % audio->FFTbufferSize;
         if (mmap_area->running) {
             write_to_fftw_input_buffers(mmap_area->buffer, buf_frames, audio);
