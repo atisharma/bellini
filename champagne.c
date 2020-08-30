@@ -144,7 +144,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     int sourceIsAuto = 1;
     double peak_dB = -10.0;
     double dB = -100.0;
-    int frames_rendered = 0;
 
     struct audio_data audio;
     memset(&audio, 0, sizeof(audio));
@@ -416,6 +415,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                         number_of_bars,
                         RIGHT_CHANNEL);
 
+                    fps = fps * 0.99 + (1.0 - 0.99) * CLOCKS_PER_SEC / (double)(fps_timer - last_fps_timer);
+
                 } else {
                     // if in sleep mode wait and continue
                     // show a clock, screensaver or something
@@ -456,7 +457,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 bf_plot_axes(buffer_final, ax_l, ax_c, ax_c2);
                 last_fps_timer = fps_timer;
                 fps_timer = clock();
-                fps = fps * 0.99 + (1.0 - 0.99) * CLOCKS_PER_SEC / (double)(fps_timer - last_fps_timer);
                 /* debugging info
                     sprintf(textstr, "%+7.2f peak_dB", peak_dB);
                     bf_text(buffer_final, textstr, 15, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
@@ -464,12 +464,11 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     bf_text(buffer_final, textstr, 19, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 110, audio_c);
                 end debugging info */
                 time(&now);
-                frames_rendered++;
-                if (( (int)(frames_rendered / fps) % 20) > 15) {
+                if ((now % 20) > 15) {
                     // show FPS
                     sprintf(textstr, "%3.0ffps", fps);
                     bf_text(buffer_final, textstr, 6, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
-                } else if (( (int)(frames_rendered / fps) % 20) > 10) {
+                } else if ((now % 20) > 10) {
                     // sampling rate
                     sprintf(textstr, "%4.1fkHz", (double)audio.rate / 1000);
                     bf_text(buffer_final, textstr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
