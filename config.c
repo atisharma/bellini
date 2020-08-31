@@ -49,14 +49,22 @@ void write_errorf(void *err, const char *fmt, ...) {
 }
 
 int validate_color(char *checkColor) {
-    // TODO: take hex colours for the framebuffer display
     int validColor = 0;
-    if ((strcmp(checkColor, "black") == 0) || (strcmp(checkColor, "red") == 0) ||
-        (strcmp(checkColor, "green") == 0) || (strcmp(checkColor, "yellow") == 0) ||
-        (strcmp(checkColor, "blue") == 0) || (strcmp(checkColor, "magenta") == 0) ||
-        (strcmp(checkColor, "cyan") == 0) || (strcmp(checkColor, "white") == 0) ||
-        (strcmp(checkColor, "default") == 0))
-        validColor = 1;
+    if (checkColor[0] == '#' && strlen(checkColor) == 7) {
+        // 0 to 9 and a to f
+        for (int i = 1; checkColor[i]; ++i) {
+            if (!isdigit(checkColor[i])) {
+                if (tolower(checkColor[i]) >= 'a' && tolower(checkColor[i]) <= 'f') {
+                    validColor = 1;
+                } else {
+                    validColor = 0;
+                    break;
+                }
+            } else {
+                validColor = 1;
+            }
+        }
+    }
     return validColor;
 }
 
@@ -65,57 +73,18 @@ bool validate_colors(void *params, void *err) {
     struct error_s *error = (struct error_s *)err;
 
     // validate: color
-    if (!validate_color(p->color)) {
-        write_errorf(error, "The value for 'foreground' is invalid. It can be one of the 7 "
+    if (
+            (!validate_color(p->plot_l_col)) ||
+            (!validate_color(p->plot_r_col)) ||
+            (!validate_color(p->ax_col)) ||
+            (!validate_color(p->ax_2_col)) ||
+            (!validate_color(p->text_col)) ||
+            (!validate_color(p->audio_col))
+            ) {
+        write_errorf(error, "The value for some color is invalid. It can be one of the 7 "
                             "named colors.\n");
         return false;
     }
-
-    // validate: background color
-    if (!validate_color(p->bcolor)) {
-        write_errorf(error, "The value for 'background' is invalid. It can be either one of the 7 "
-                            "named colors.\n");
-        return false;
-    }
-
-    // In case color is not html format set bgcol and col to predefinedint values
-    p->col = -1;
-    if (strcmp(p->color, "black") == 0)
-        p->col = 0;
-    if (strcmp(p->color, "red") == 0)
-        p->col = 1;
-    if (strcmp(p->color, "green") == 0)
-        p->col = 2;
-    if (strcmp(p->color, "yellow") == 0)
-        p->col = 3;
-    if (strcmp(p->color, "blue") == 0)
-        p->col = 4;
-    if (strcmp(p->color, "magenta") == 0)
-        p->col = 5;
-    if (strcmp(p->color, "cyan") == 0)
-        p->col = 6;
-    if (strcmp(p->color, "white") == 0)
-        p->col = 7;
-    // default if invalid
-
-    // validate: background color
-    if (strcmp(p->bcolor, "black") == 0)
-        p->bgcol = 0;
-    if (strcmp(p->bcolor, "red") == 0)
-        p->bgcol = 1;
-    if (strcmp(p->bcolor, "green") == 0)
-        p->bgcol = 2;
-    if (strcmp(p->bcolor, "yellow") == 0)
-        p->bgcol = 3;
-    if (strcmp(p->bcolor, "blue") == 0)
-        p->bgcol = 4;
-    if (strcmp(p->bcolor, "magenta") == 0)
-        p->bgcol = 5;
-    if (strcmp(p->bcolor, "cyan") == 0)
-        p->bgcol = 6;
-    if (strcmp(p->bcolor, "white") == 0)
-        p->bgcol = 7;
-    // default if invalid
 
     return true;
 }
@@ -137,11 +106,24 @@ bool validate_config(struct config_params *p, struct error_s *error) {
 }
 
 bool load_colors(struct config_params *p, dictionary *ini) {
-    free(p->color);
-    free(p->bcolor);
 
-    p->color = strdup(iniparser_getstring(ini, "color:foreground", "default"));
-    p->bcolor = strdup(iniparser_getstring(ini, "color:background", "default"));
+    free(p->plot_l_col);
+    p->plot_l_col = strdup(iniparser_getstring(ini, "color:plot_l", "#FF5100"));
+
+    free(p->plot_r_col);
+    p->plot_r_col = strdup(iniparser_getstring(ini, "color:plot_r", "#00FF61"));
+    
+    free(p->ax_col);
+    p->ax_col = strdup(iniparser_getstring(ini, "color:ax", "#92FF00"));
+
+    free(p->ax_2_col);
+    p->ax_2_col = strdup(iniparser_getstring(ini, "color:ax_2", "#FF5110"));
+
+    free(p->text_col);
+    p->text_col = strdup(iniparser_getstring(ini, "color:text", "#FF5000"));
+
+    free(p->audio_col);
+    p->audio_col = strdup(iniparser_getstring(ini, "color:audio", "#FF5000"));
 
     return true;
 }

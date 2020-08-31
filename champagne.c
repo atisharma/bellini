@@ -163,33 +163,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     axes ax_r = ax_l;
     ax_r.screen_x = 1; // so l/r channels alternate pixels
 
-    /*
-    // some nice phosphor colours
-    foreground = '#56ff00'		# P1
-    foreground = '#8cff00'		# P2
-    foreground = '#ffb700' 	    # P3
-    foreground = '#d2ff00' 	    # P4
-    foreground = '#3300ff' 	    # P5
-    foreground = '#007bff' 	    # P6
-    foreground = '#b9ff00' 	    # P7
-    foreground = '#007bff'		# P11
-    foreground = '#ffdc00'		# P12
-    foreground = '#ff2100'		# P13
-    foreground = '#00ff61'		# P15
-    foreground = '#610061'		# P16
-    foreground = '#00ff61'		# P17
-    foreground = '#92ff00'		# P18
-    foreground = '#ffdf00'		# P19
-    foreground = '#b3ff00'		# P20
-    */
-    rgba plot_c_l   = {0xFF, 0x51, 0x00, 0x00};
-    rgba plot_c_r   = {0x00, 0xFF, 0x61, 0x00};
-    rgba ax_c       = {0x92, 0xFF, 0x00, 0x00};
-    rgba ax_c2      = {0xFF, 0x51, 0x10, 0x00};
-    //rgba audio_c    = {0x00, 0x07, 0xFF, 0x00};
-    rgba text_c     = {0xFF, 0x51, 0x00, 0x00};
-    rgba audio_c = text_c;
-
     // framebuffer plotting init
     fb_setup();
     fb_clear();
@@ -248,6 +221,21 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
         // config: font
         init_freetype(p.font);
+
+        // plot colours
+        uint32_t r, g, b, a=0;
+        sscanf(p.plot_l_col, "#%02x%02x%02x", &r, &g, &b);
+        rgba plot_l_c   = {r, g, b, a};
+        sscanf(p.plot_r_col, "#%02x%02x%02x", &r, &g, &b);
+        rgba plot_r_c   = {r, g, b, a};
+        sscanf(p.ax_col, "#%02x%02x%02x", &r, &g, &b);
+        rgba ax_c   = {r, g, b, a};
+        sscanf(p.ax_2_col, "#%02x%02x%02x", &r, &g, &b);
+        rgba ax2_c   = {r, g, b, a};
+        sscanf(p.text_col, "#%02x%02x%02x", &r, &g, &b);
+        rgba text_c   = {r, g, b, a};
+        sscanf(p.audio_col, "#%02x%02x%02x", &r, &g, &b);
+        rgba audio_c   = {r, g, b, a};
 
         // input: init
         audio.source = malloc(1 + strlen(p.audio_source));
@@ -452,9 +440,9 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                 // plot to framebuffer
                 bf_shade(buffer_final, p.alpha);
                 // plot spectrum
-                bf_plot_data(buffer_final, ax_l, bins_right, number_of_bars, plot_c_l);
-                bf_plot_data(buffer_final, ax_r, bins_left, number_of_bars, plot_c_r);
-                bf_plot_axes(buffer_final, ax_l, ax_c, ax_c2);
+                bf_plot_data(buffer_final, ax_l, bins_right, number_of_bars, plot_l_c);
+                bf_plot_data(buffer_final, ax_r, bins_left, number_of_bars, plot_r_c);
+                bf_plot_axes(buffer_final, ax_l, ax_c, ax2_c);
                 last_fps_timer = fps_timer;
                 fps_timer = clock();
                 /* debugging info

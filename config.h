@@ -44,7 +44,8 @@ enum input_method {
 };
 
 struct config_params {
-    char *color, *bcolor, *audio_source, *font;
+    char *plot_l_col, *plot_r_col, *ax_col, *ax_2_col, *text_col, *audio_col;
+    char *audio_source, *font;
     double alpha, noise_floor;
     double *userEQ;
     enum input_method im;

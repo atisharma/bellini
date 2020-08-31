@@ -51,11 +51,9 @@ int fb_cleanup() {
     return munmap(fbp, vinfo.yres * finfo.line_length);
 }
 
-
 struct fb_var_screeninfo *get_vinfo() {
     return &vinfo;
 };
-
 
 uint32_t rgba_to_pixel(rgba c) {
     uint32_t pixel = (c.r << vinfo.red.offset)|

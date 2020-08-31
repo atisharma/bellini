@@ -1,15 +1,16 @@
 Champagne
 =========
 
-Champagne is a fork (well, more of a butchery) of [CAVA](https://github.com/karlstav/cava/) to provide more a 'scientifically correct' spectrum analyser.
+Champagne is a "friendly fork" (well, more of a butchery) of [CAVA](https://github.com/karlstav/cava/) to provide more a 'scientifically correct' spectrum analyser.
 Much of the heavy lifting and infrastructure was done by the author(s) of cava. So credit to them.
 
 Like CAVA, champagne's goal is to provide a audio spectrum analyser for Linux from various inputs.
-Unlike CAVA, champagne is meant for accuracy and correctness, and writes directly to the framebuffer for speed and precision.
+Unlike CAVA, champagne primary goal is accuracy and correctness, and writes directly to the framebuffer for speed and precision.
 
 Since the aims are somewhat different, and achieving those aims involved changing a substantial amount of the core code, I forked the project.
+My hope is that some of the ideas developed here will make their way back upstream over time.
 
-Champagne inherits CAVA's input support, so should work with Pulseaudio, fifo (mpd), sndio, squeezelite and portaudio. It's only tested on squeezelite.
+Champagne inherits CAVA's input support, so might work with Pulseaudio, fifo (mpd), sndio, squeezelite and portaudio. It's only tested on squeezelite.
 
 It comes with some nice fresh bugs.
 
@@ -23,7 +24,7 @@ Distinguishing features include:
 
 - an accurate two-channel amplitude spectrum on log-log plot
 - windowing of the data using a (3, 3) [Kolmogorov-Zurbenko filter](https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Zurbenko_filter)
-- axes mark off 20dB intervals (amplitude) and powers of 10 / octaves (frequency)
+- axes marked off at 20dB intervals (amplitude) and powers of 10 / octaves (frequency)
 - noise floor truncation
 - left/right merged colour schemes
 - direct framebuffer output
@@ -33,7 +34,7 @@ Distinguishing features include:
 ## Installing
 
 Installation and compilation should be almost exactly the same as for CAVA. Please refer to those instructions.
-You also need freetype. On Debian, `ft2build.h` is found in `/usr/include/freetype2/` -- you may have to change Makefile.am to specify, until I work out how to use automake properly.
+You also need freetype. On Debian and Void, `ft2build.h` is found in `/usr/include/freetype2/` -- you may have to change Makefile.am to specify, until I work out how to use automake properly.
 
 The config file should contain the following options:
 
@@ -49,6 +50,15 @@ alpha = 0.8
 # only tested with squeezelite/shmem
 method = shmem
 source = /squeezelite-dc:a6:32:c0:5c:0d
+
+[color]
+# hex colors for the following only:
+plot_r = "#56FF00"
+plot_l = "#007BFF"
+ax = "#56FF00"
+ax_2 = "#007BFF"
+text = "#007BFF"
+audio = "#007BFF"
 
 ```
 
@@ -95,7 +105,7 @@ in root's crontab. This will kill your cursor (on tty0).
 
 ### I'd like to change XYZ option
 
-Some assumptions are hard-coded (for instance the size of the framebuffer, the windowing, the colourscheme, and the upper/lower cutoff frequencies of the FFT). Changing these involves at least editing some header file and recompiling, and may break the code. Some of these may be broken out to the config file in the future.
+Some assumptions are hard-coded (for instance the size of the framebuffer, the windowing, and the upper/lower cutoff frequencies of the FFT). Changing these involves at least editing some header file and recompiling, and may break the code. Some of these may be broken out to the config file in the future.
 
 
 ### Bugs
