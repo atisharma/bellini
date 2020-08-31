@@ -58,9 +58,6 @@ int *make_bins(int FFTbufferSize,
     double power[number_of_bins];
     static int bins_left[8192];
     static int bins_right[8192];
-    int L = FFTbufferSize / 2 + 1;
-    double y[L];
-    register double w = 1.0 / (FFTbufferSize * rate);
 
     // get total signal power in each bin,
     // and space bins logarithmically.
@@ -74,21 +71,20 @@ int *make_bins(int FFTbufferSize,
 
     for (i = imin; i < imax; i++) {
         // signal power
-        y[i] = out[i][0] * out[i][0] + out[i][1] * out[i][1];
         // log bin spacing, nearest bin
         n = (int)(number_of_bins * (log(i) - log(imin)) / log(imax / imin));
-        // integrating over bins, multiply by 1/f for log f ordinate
-        power[n] += y[i] * w * imax / i;
+        // integrating over bins, multiply by 1/f (i here) for log f ordinate
+        power[n] += (out[i][0] * out[i][0] + out[i][1] * out[i][1]) / i;
     }
 
     if (channel == LEFT_CHANNEL) {
         for (n = 0; n < number_of_bins; n++) {
-            bins_left[n] = power[n];
+            bins_left[n] = (int)((power[n] * imax) / (FFTbufferSize * rate));
         }
         return bins_left;
     } else {
         for (n = 0; n < number_of_bins; n++) {
-            bins_right[n] = power[n];
+            bins_right[n] = (int)((power[n] * imax) / (FFTbufferSize * rate));
         }
         return bins_right;
     }
