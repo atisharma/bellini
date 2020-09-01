@@ -1,8 +1,3 @@
-/*
- * TODO:
- *  [ ] plot raw audio signal (option)
- */
-
 #include <locale.h>
 
 #ifdef HAVE_ALLOCA_H
@@ -143,6 +138,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
     int number_of_bars = 25;    // bars per channel
     int sourceIsAuto = 1;
     double peak_dB = -10.0;
+    double peak_l = 0, peak_r = 0, ppm_l = 0, ppm_r = 0;
     double dB = -100.0;
 
     struct audio_data audio;
@@ -383,8 +379,15 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     reload_colors = 0;
                 }
 
-                if (audio.running) { // execute FFT and integrate power
+                last_fps_timer = fps_timer;
+                fps_timer = clock();
 
+
+#ifdef NDEBUG
+                // framebuffer vis
+
+                if ((audio.running) && (!strcmp("fft", p.vis))) {
+                    // execute FFT and integrate power
                     window(3, &audio);
                     fftw_execute(p_l);
                     fftw_execute(p_r);
@@ -403,9 +406,79 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                         number_of_bars,
                         RIGHT_CHANNEL);
 
-                    fps = fps * 0.99 + (1.0 - 0.99) * CLOCKS_PER_SEC / (double)(fps_timer - last_fps_timer);
+                    fps = fps * 0.995 + (1.0 - 0.995) * CLOCKS_PER_SEC / (double)(fps_timer - last_fps_timer);
+                    // FFT plotter to framebuffer
 
+                    // set plotting axes
+                    for (n = 0; n < number_of_bars; n++) {
+                        dB = 10 * log10(fmax(bins_left[n], bins_right[n]));
+                        peak_dB = fmax(dB, peak_dB);
+                        ax_l.y_max = peak_dB;
+                        ax_l.y_min = peak_dB + p.noise_floor;
+                        ax_r.y_max = peak_dB;
+                        ax_r.y_min = peak_dB + p.noise_floor;
+                    }
+                    bf_shade(buffer_final, p.alpha);
+                    // plot spectrum
+                    bf_plot_data(buffer_final, ax_l, bins_right, number_of_bars, plot_l_c);
+                    bf_plot_data(buffer_final, ax_r, bins_left, number_of_bars, plot_r_c);
+                } else if (audio.running) {
+                    // PPM
+                    // peak over last 5ms
+                    peak_l = 0;
+                    peak_r = 0;
+                    int i;
+                    int num_samples = (int)(5.0 * (double)audio.rate / 1000.0);
+                    for (n = 0; n < num_samples; n++) {
+                        i = (n + audio.index) % (audio.FFTbufferSize - 1);
+                        peak_l += fabs((double)audio.in_l[i]);
+                        peak_r += fabs((double)audio.in_r[i]);
+                    }
+                    peak_l /= num_samples;
+                    peak_r /= num_samples;
+                    // came from a signed 16-bit int, so clipping at < 90.3dB
+                    // indicate scale 0dB relative to absolute 81dB (10dB headroom)
+                    // ppm in dB relative to headroom
+                    double max_angle = 45;
+                    double min_angle = 135;
+                    double max_dB = 5;
+                    double min_dB = -50;
+                    double m = (max_angle - min_angle) / (max_dB - min_dB);
+                    double c = max_angle - m * max_dB;
+                    // physical dynamics of ppm meters
+                    double dt = (double)(fps_timer - last_fps_timer) / CLOCKS_PER_SEC;
+                    ppm_l = exp(-1.3545 * dt) * ppm_l + fmax(20 * log10(peak_l) - 80.3, min_dB) * dt;
+                    ppm_r = exp(-1.3545 * dt) * ppm_r + fmax(20 * log10(peak_r) - 80.3, min_dB) * dt;
+                    double angle_l = ppm_l * m + c;
+                    double angle_r = ppm_r * m + c;
+                    // draw left, right on one dial
+                    int y0 = 60;
+                    int r = 320;
+                    int x0 = (int)buffer_final.w / 2;
+                    bf_clear(buffer_final);
+                    bf_text(buffer_final, "DIN PPM", 7, 8, false, ax_l.screen_x + 10, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
+                    // dB markings
+                    for (double dB = min_dB; dB < 0; dB += 10) {
+                        bf_draw_ray(buffer_final, x0, y0, r+8, r+22, dB * m + c, 3, ax_c);
+                    }
+                    // dB excess
+                    for (double dB = 0; dB <= max_dB; dB += 5) {
+                        bf_draw_ray(buffer_final, x0, y0, r+8, r+22, dB * m + c, 3, ax2_c);
+                    }
+                    // main dial
+                    bf_draw_arc(buffer_final, x0, y0, r, min_dB * m + c, max_dB * m + c, 5, ax_c);
+                    // dial excess
+                    bf_draw_arc(buffer_final, x0, y0, r+10, c, max_dB * m + c, 5, ax2_c);
+                    // readings
+                    bf_draw_ray(buffer_final, x0, y0, r - 100, r + 20, angle_l, 5, plot_l_c);
+                    bf_draw_ray(buffer_final, x0, y0, r - 100, r + 20, angle_r, 5, plot_r_c);
+                    sprintf(textstr, "%+03.0fdB", ppm_l);
+                    bf_text(buffer_final, textstr, 5, 7, false, ax_l.screen_x + 10, y0, audio_c);
+                    sprintf(textstr, "%+03.0fdB", ppm_r);
+                    bf_text(buffer_final, textstr, 5, 7, false, ax_l.screen_w - 100, y0, audio_c);
+                    bf_text(buffer_final, "dB", 2, 12, true, 0, y0, audio_c);
                 } else {
+
                     // if in sleep mode wait and continue
                     // show a clock, screensaver or something
 #ifdef NDEBUG
@@ -426,25 +499,10 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     continue;
                 }
 
-                // set plotting axes
-                for (n = 0; n < number_of_bars; n++) {
-                    dB = 10 * log10(fmax(bins_left[n], bins_right[n]));
-                    peak_dB = fmax(dB, peak_dB);
-                    ax_l.y_max = peak_dB;
-                    ax_l.y_min = peak_dB + p.noise_floor;
-                    ax_r.y_max = peak_dB;
-                    ax_r.y_min = peak_dB + p.noise_floor;
-                }
+                // junk to keep compiler happy -- delete
+                ax_r.y_max += 0;
+                ax2_c.r += 0;
 
-#ifdef NDEBUG
-                // plot to framebuffer
-                bf_shade(buffer_final, p.alpha);
-                // plot spectrum
-                bf_plot_data(buffer_final, ax_l, bins_right, number_of_bars, plot_l_c);
-                bf_plot_data(buffer_final, ax_r, bins_left, number_of_bars, plot_r_c);
-                bf_plot_axes(buffer_final, ax_l, ax_c, ax2_c);
-                last_fps_timer = fps_timer;
-                fps_timer = clock();
                 /* debugging info
                     sprintf(textstr, "%+7.2f peak_dB", peak_dB);
                     bf_text(buffer_final, textstr, 15, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 80, audio_c);

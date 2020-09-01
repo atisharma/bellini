@@ -108,10 +108,10 @@ bool validate_config(struct config_params *p, struct error_s *error) {
 bool load_colors(struct config_params *p, dictionary *ini) {
 
     free(p->plot_l_col);
-    p->plot_l_col = strdup(iniparser_getstring(ini, "color:plot_l", "#FF5100"));
+    p->plot_l_col = strdup(iniparser_getstring(ini, "color:plot_l", "#00FF61"));
 
     free(p->plot_r_col);
-    p->plot_r_col = strdup(iniparser_getstring(ini, "color:plot_r", "#00FF61"));
+    p->plot_r_col = strdup(iniparser_getstring(ini, "color:plot_r", "#FF5100"));
     
     free(p->ax_col);
     p->ax_col = strdup(iniparser_getstring(ini, "color:ax", "#92FF00"));
@@ -196,6 +196,9 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
     
     free(p->font);
     p->font = strdup(iniparser_getstring(ini, "general:font", "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"));
+
+    free(p->vis);
+    p->vis = strdup(iniparser_getstring(ini, "general:vis", "fft"));
 
     // config: output
     free(p->audio_source);

@@ -90,6 +90,10 @@ void bf_text(buffer buff, char *text, int num_chars, int center, int size, uint3
 
 void bf_draw_line(const buffer buff, uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1, rgba c);
 
+void bf_draw_arc(const buffer buff, int x0, int y0, int radius, double theta0, double theta1, int thickness, rgba c);
+
+void bf_draw_ray(const buffer buff, int x0, int y0, int r0, int r1, double theta, int thickness, rgba c);
+
 void bf_xtick(const buffer buff, const axes ax, double x, const rgba c);
 void bf_ytick(const buffer buff, const axes ax, double y, const rgba c);
 

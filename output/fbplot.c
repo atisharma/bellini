@@ -257,6 +257,71 @@ void bf_draw_line(const buffer buff, uint32_t x0, uint32_t y0, uint32_t x1, uint
     }
 }
 
+void bf_draw_arc(const buffer buff, int x0, int y0, int radius, double theta0, double theta1, int thickness, rgba c) {
+    // Draw an arc with origin x0, y0, from angle theta0 to theta1
+    // NB: x0, y0 are int as they can be negative.
+    int r, x, y, xmin, xmax;
+    rgba c2 = c;
+    c2.r /= 2;
+    c2.g /= 2;
+    c2.b /= 2;
+    // sweep over all x1 < x < x2 and find y
+    // smooth the edges
+    r = radius;
+    xmin = x0 + (int)(r * cos(theta0 * 2 * M_PI / 360));
+    xmax = x0 + (int)(r * cos(theta1 * 2 * M_PI / 360));
+    for (x = (int)xmin; x <= (int)xmax; x++) {
+        y = y0 + sqrt(r * r - (x - x0) * (x - x0));
+        bf_set_pixel(buff, (uint32_t)(x + 1), (uint32_t)(y - 1), c2);
+        bf_set_pixel(buff, (uint32_t)(x - 1), (uint32_t)(y - 1), c2);
+    }
+    r = radius + thickness;
+    xmin = x0 + (int)(r * cos(theta0 * 2 * M_PI / 360));
+    xmax = x0 + (int)(r * cos(theta1 * 2 * M_PI / 360));
+    for (x = (int)xmin; x <= (int)xmax; x++) {
+        y = y0 + sqrt(r * r - (x - x0) * (x - x0));
+        bf_set_pixel(buff, (uint32_t)(x + 1), (uint32_t)(y + 1), c2);
+        bf_set_pixel(buff, (uint32_t)(x - 1), (uint32_t)(y + 1), c2);
+    }
+    // for those x, y, paint the pixels
+    for (r = radius; r <= radius + thickness; r++) {
+        xmin = x0 + (int)(r * cos(theta0 * 2 * M_PI / 360));
+        xmax = x0 + (int)(r * cos(theta1 * 2 * M_PI / 360));
+        for (x = (int)xmin; x <= (int)xmax; x++) {
+            y = y0 + sqrt(r * r - (x - x0) * (x - x0));
+            bf_set_pixel(buff, (uint32_t)x, (uint32_t)y, c);
+            bf_set_pixel(buff, (uint32_t)x, (uint32_t)(y + 1), c);
+            bf_set_pixel(buff, (uint32_t)x, (uint32_t)(y - 1), c);
+        }
+    }
+}
+
+void bf_draw_ray(const buffer buff, int x0, int y0, int r0, int r1, double theta, int thickness, rgba c) {
+    // Draw a ray with origin x0, y0, angle theta, from r0 to r1
+    // NB: x0, y0 are int as they can be negative.
+    int r, x, y, dx;
+    rgba c2 = c;
+    c2.r /= 2;
+    c2.g /= 2;
+    c2.b /= 2;
+    // for those x, y, paint the pixels
+    for (r = r0; r <= r1; r++) {
+        for (dx = 0; dx < thickness; dx++) {
+            x = dx + x0 + (int)(r * cos(theta * 2 * M_PI / 360));
+            y = y0 + (int)(r * sin(theta * 2 * M_PI / 360));
+            bf_set_pixel(buff, (uint32_t)x, (uint32_t)(y - 1), c2);
+            bf_set_pixel(buff, (uint32_t)x, (uint32_t)(y + 1), c2);
+        }
+    }
+    for (r = r0; r <= r1; r++) {
+        for (dx = 0; dx < thickness; dx++) {
+            x = dx + x0 + (int)(r * cos(theta * 2 * M_PI / 360));
+            y = y0 + (int)(r * sin(theta * 2 * M_PI / 360));
+            bf_set_pixel(buff, (uint32_t)x, (uint32_t)y, c);
+        }
+    }
+}
+
 void bf_xtick(const buffer buff, const axes ax, double x, const rgba c) {
     uint32_t screen_x = ax.screen_w * (x - ax.x_min) / (ax.x_max - ax.x_min) + ax.screen_x;
     bf_draw_line(buff, screen_x, ax.screen_y, screen_x, ax.screen_y + TICK_SIZE, c);
