@@ -123,6 +123,7 @@ int main(int argc, char **argv) {
     clock_t fps_timer = 10;
     clock_t last_fps_timer = 11;
     double fps = 30;
+    double dt = 1.0;
     char textstr[40];
     char configPath[PATH_MAX];
     char *usage = "\n\
@@ -245,18 +246,22 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         audio.index = 0;
         audio.running = 1;
 
+        // allocate fft memory
         audio.in_r = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
         audio.in_l = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
         memset(audio.in_r, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(double));
         memset(audio.in_l, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(double));
+
+        audio.windowed_r = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
+        audio.windowed_l = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
 
         out_l = fftw_alloc_complex(2 * (audio.FFTbufferSize / 2 + 1));
         out_r = fftw_alloc_complex(2 * (audio.FFTbufferSize / 2 + 1));
         memset(out_l, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(fftw_complex));
         memset(out_r, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(fftw_complex));
 
-        p_l = fftw_plan_dft_r2c_1d(audio.FFTbufferSize, audio.in_l, out_l, FFTW_MEASURE);
-        p_r = fftw_plan_dft_r2c_1d(audio.FFTbufferSize, audio.in_r, out_r, FFTW_MEASURE);
+        p_l = fftw_plan_dft_r2c_1d(audio.FFTbufferSize, audio.windowed_l, out_l, FFTW_MEASURE);
+        p_r = fftw_plan_dft_r2c_1d(audio.FFTbufferSize, audio.windowed_r, out_r, FFTW_MEASURE);
 
         debug("got buffer size: %d, %d, %d", audio.FFTbufferSize);
 
@@ -381,17 +386,39 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
 
                 last_fps_timer = fps_timer;
                 fps_timer = clock();
-
+                dt = (double)(fps_timer - last_fps_timer) / CLOCKS_PER_SEC;
 
 #ifdef NDEBUG
                 // framebuffer vis
 
-                if ((audio.running) && (!strcmp("fft", p.vis))) {
-                    // execute FFT and integrate power
-                    window(3, &audio);
+                // sync and blit
+                fb_vsync();
+                bf_blit(buffer_final);
+
+                if (!audio.running) {
+                    // if in sleep mode wait and continue
+                    // show a clock, screensaver or something
+                    bf_clear(buffer_clock);
+                    time(&now);
+                    l = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
+                    bf_text(buffer_clock, textstr, l, 64, true, 0, 200, text_c);
+                    l = strftime(textstr, sizeof(textstr), "%a, %d %B %Y", localtime(&now));
+                    bf_text(buffer_clock, textstr, l, 14, true, 0, 80, text_c);
+                    bf_blend(buffer_final, buffer_clock, 0.98);
+
+                    // wait, then check if running again.
+                    sleep_mode_timer.tv_sec = 0;
+                    sleep_mode_timer.tv_nsec = 1e8;
+                    nanosleep(&sleep_mode_timer, NULL);
+                    continue;
+
+                } else if (!strcmp("fft", p.vis)) {
+                    // window, execute FFT
+                    window(&audio);
                     fftw_execute(p_l);
                     fftw_execute(p_r);
 
+                    // integrate power
                     bins_left = make_bins(
                         audio.FFTbufferSize,
                         audio.rate,
@@ -406,9 +433,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                         number_of_bars,
                         RIGHT_CHANNEL);
 
-                    fps = fps * 0.995 + (1.0 - 0.995) * CLOCKS_PER_SEC / (double)(fps_timer - last_fps_timer);
                     // FFT plotter to framebuffer
-
                     // set plotting axes
                     for (n = 0; n < number_of_bars; n++) {
                         dB = 10 * log10(fmax(bins_left[n], bins_right[n]));
@@ -418,11 +443,14 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                         ax_r.y_max = peak_dB;
                         ax_r.y_min = peak_dB + p.noise_floor;
                     }
+
                     bf_shade(buffer_final, p.alpha);
                     // plot spectrum
+                    bf_plot_axes(buffer_final, ax_l, ax_c, ax2_c);
                     bf_plot_data(buffer_final, ax_l, bins_right, number_of_bars, plot_l_c);
                     bf_plot_data(buffer_final, ax_r, bins_left, number_of_bars, plot_r_c);
-                } else if (audio.running) {
+
+                } else {
                     // PPM
                     // peak over last 5ms
                     peak_l = 0;
@@ -446,7 +474,6 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     double m = (max_angle - min_angle) / (max_dB - min_dB);
                     double c = max_angle - m * max_dB;
                     // physical dynamics of ppm meters
-                    double dt = (double)(fps_timer - last_fps_timer) / CLOCKS_PER_SEC;
                     ppm_l = exp(-1.3545 * dt) * ppm_l + fmax(20 * log10(peak_l) - 80.3, min_dB) * dt;
                     ppm_r = exp(-1.3545 * dt) * ppm_r + fmax(20 * log10(peak_r) - 80.3, min_dB) * dt;
                     double angle_l = ppm_l * m + c;
@@ -477,31 +504,7 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     sprintf(textstr, "%+03.0fdB", ppm_r);
                     bf_text(buffer_final, textstr, 5, 7, false, ax_l.screen_w - 100, y0, audio_c);
                     bf_text(buffer_final, "dB", 2, 12, true, 0, y0, audio_c);
-                } else {
-
-                    // if in sleep mode wait and continue
-                    // show a clock, screensaver or something
-#ifdef NDEBUG
-                    bf_clear(buffer_clock);
-                    time(&now);
-                    l = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
-                    bf_text(buffer_clock, textstr, l, 64, true, 0, 200, text_c);
-                    l = strftime(textstr, sizeof(textstr), "%a, %d %B %Y", localtime(&now));
-                    bf_text(buffer_clock, textstr, l, 14, true, 0, 80, text_c);
-                    bf_blend(buffer_final, buffer_clock, 0.98);
-                    fb_vsync();
-                    bf_blit(buffer_final);
-#endif
-                    // wait, then check if running again.
-                    sleep_mode_timer.tv_sec = 0;
-                    sleep_mode_timer.tv_nsec = 1e8;
-                    nanosleep(&sleep_mode_timer, NULL);
-                    continue;
                 }
-
-                // junk to keep compiler happy -- delete
-                ax_r.y_max += 0;
-                ax2_c.r += 0;
 
                 /* debugging info
                     sprintf(textstr, "%+7.2f peak_dB", peak_dB);
@@ -509,23 +512,25 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     sprintf(textstr, "%+7.2f noise_floor", p.noise_floor);
                     bf_text(buffer_final, textstr, 19, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 110, audio_c);
                 end debugging info */
+
+                // stuff common to all vis
+                fps = fps * 0.995 + (1.0 - 0.995) / dt;
+
                 time(&now);
                 if ((now % 20) > 15) {
                     // show FPS
                     sprintf(textstr, "%3.0ffps", fps);
-                    bf_text(buffer_final, textstr, 6, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
+                    bf_text(buffer_final, textstr, 6, 10, false, ax_l.screen_x + ax_l.screen_w - 150, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
                 } else if ((now % 20) > 10) {
                     // sampling rate
                     sprintf(textstr, "%4.1fkHz", (double)audio.rate / 1000);
-                    bf_text(buffer_final, textstr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
+                    bf_text(buffer_final, textstr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - 150, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
                 } else {
                     // little clock
                     l = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
-                    bf_text(buffer_final, textstr, l, 10, false, ax_l.screen_x + ax_l.screen_w - 100, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
+                    bf_text(buffer_final, textstr, l, 10, false, ax_l.screen_x + ax_l.screen_w - 130, ax_l.screen_y + ax_l.screen_h - 80, audio_c);
                 }
-                // sync and blit
-                fb_vsync();
-                bf_blit(buffer_final);
+
 #endif
                 // check if audio thread has exited unexpectedly
                 if (audio.terminate == 1) {
@@ -551,6 +556,8 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
         // free fft working space
         fftw_free(audio.in_r);
         fftw_free(audio.in_l);
+        fftw_free(audio.windowed_r);
+        fftw_free(audio.windowed_l);
         fftw_free(out_r);
         fftw_free(out_l);
         fftw_destroy_plan(p_l);

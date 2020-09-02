@@ -19,32 +19,26 @@
 #include "util.h"
 
 // apply window in-place on audio data
-int window(int k, void *data) {
-    struct audio_data *audio = (struct audio_data *)data;
-    double temp[audio->FFTbufferSize];
-
+void window(struct audio_data *audio) {
     // detrend
-    double l_start = audio->in_l[0];
-    double l_end = audio->in_l[audio->FFTbufferSize - 1];
-    double r_start = audio->in_r[0];
-    double r_end = audio->in_r[audio->FFTbufferSize - 1];
+    double l_start = audio->in_l[audio->index];
+    double l_end = audio->in_l[(audio->index + 1) % audio->FFTbufferSize];
+    double r_start = audio->in_r[audio->index];
+    double r_end = audio->in_r[(audio->index + 1) % audio->FFTbufferSize];
+    int n;
+    // Blackman-Nuttall window
+    //double a0=0.3635819, a1=0.4891775, a2=0.1365995, a3=0.0106411;
+    // Hann window
+    double a0=0.5, a1=0.5, a2=0, a3=0;
+    // rectangular window
+    //double a0=1, a1=0.0, a2=0, a3=0;
+    double w;
     for (int i = 0; i < audio->FFTbufferSize; i++) {
-        audio->in_l[i] = (audio->in_l[i] - l_start) / (l_end - l_start);
-        audio->in_r[i] = (audio->in_r[i] - r_start) / (r_end - r_start);
+        n = (audio->index + i) % audio->FFTbufferSize;
+        w = a0 - a1 * cos(2 * M_PI * n / audio->FFTbufferSize) + a2 * cos(4 * M_PI * n / audio->FFTbufferSize) - a3 * cos(6 * M_PI * n / audio->FFTbufferSize);
+        audio->windowed_l[i] = w * (audio->in_l[n] - l_start - (l_end - l_start) * n / audio->FFTbufferSize);
+        audio->windowed_r[i] = w * (audio->in_r[n] - r_start - (r_end - r_start) * n / audio->FFTbufferSize);
     }
-    
-    // Kolmogorov-Zurbenko (k, m=3) filter: repeated average of buffers
-    for (int ki = 0; ki < k; ki++) {
-        memcpy(temp, audio->in_l, sizeof(double) * audio->FFTbufferSize);
-        for (int i = 1; i < audio->FFTbufferSize; i++) {    // careful with bounds checking for m
-            audio->in_l[i] = (temp[i-1] + temp[i] + temp[i+1]) / 3.0;
-        }
-        memcpy(temp, audio->in_r, sizeof(double) * audio->FFTbufferSize);
-        for (int i = 1; i < audio->FFTbufferSize; i++) {    // careful with bounds checking for m
-            audio->in_r[i] = (temp[i-1] + temp[i] + temp[i+1]) / 3.0;
-        }
-    }
-    return 0;
 }
 
 

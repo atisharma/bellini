@@ -7,7 +7,9 @@
 #define UPPER_CUTOFF_FREQ 20000
 
 
-int window(int k, void *data);
+#include "input/common.h"
+
+void window(struct audio_data *audio);
 
 int *make_bins(int FFTbufferSize,
         unsigned int rate,

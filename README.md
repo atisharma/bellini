@@ -14,7 +14,7 @@ Champagne inherits CAVA's input support, so might work with Pulseaudio, fifo (mp
 
 It comes with some nice fresh bugs.
 
-I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a Pimoroni Hyperpixel 4.0 LCD screen in landscape orientation, and get a smooth average near the full 60fps, using about 50% on one thread, and about 10-15% on the other.
+I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a Pimoroni Hyperpixel 4.0 LCD screen in landscape orientation, and get a smooth 60fps for the FFT vis, using about 50% on one thread, and about 10-15% on the other.
 CPU usage could be improved by further optimisation or sacrificing visual effects.
 
 
@@ -23,11 +23,12 @@ CPU usage could be improved by further optimisation or sacrificing visual effect
 Distinguishing features include:
 
 - an accurate two-channel amplitude spectrum on log-log plot
-- windowing of the data using a (3, 3) [Kolmogorov-Zurbenko filter](https://en.wikipedia.org/wiki/Kolmogorov%E2%80%93Zurbenko_filter)
+- windowing of the data (Hann window, Blackman-Nuttall and rectangular also implemented with a code recompilation)
 - axes marked off at 20dB intervals (amplitude) and powers of 10 / octaves (frequency)
 - noise floor truncation
 - left/right merged colour schemes
-- direct framebuffer output
+- a DIN / Type 1 [Peak Programme Meter](https://en.wikipedia.org/wiki/Peak_programme_meter)
+- fast direct framebuffer output
 - a natty clock
 
 
@@ -44,7 +45,9 @@ The config file should contain the following options:
 noise_floor = -100
 font = /home/pi/champagne/fonts/digital-7/digital-7.ttf
 # decay for the fading of the display
-alpha = 0.8
+alpha = 0.9
+# vis = ppm
+vis = fft
 
 [input]
 # only tested with squeezelite/shmem
@@ -53,12 +56,12 @@ source = /squeezelite-dc:a6:32:c0:5c:0d
 
 [color]
 # hex colors for the following only:
-plot_r = "#56FF00"
-plot_l = "#007BFF"
-ax = "#56FF00"
-ax_2 = "#007BFF"
-text = "#007BFF"
-audio = "#007BFF"
+plot_l = "#56FF00"
+plot_r = "#007BFF"
+ax_2 =   "#FF2100"
+ax =     "#468800"
+text =   "#FF2100"
+audio =  "#888888"
 
 ```
 

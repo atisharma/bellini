@@ -14,7 +14,7 @@
 struct audio_data {
     int FFTbufferSize;
     int index;
-    double *in_r, *in_l;
+    double *in_r, *in_l, *windowed_l, *windowed_r;
     int format;
     unsigned int rate;
     char *source;   // alsa device, fifo path or pulse source
@@ -25,6 +25,6 @@ struct audio_data {
     char error_message[1024];
 };
 
-void reset_output_buffers(struct audio_data *data);
+void reset_output_buffers(struct audio_data *audio);
 
-int write_to_fftw_input_buffers(int16_t buf[], int16_t frames, void *data);
+int write_to_fftw_input_buffers(int16_t buf[], int16_t frames, struct audio_data *audio);
