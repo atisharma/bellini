@@ -43,23 +43,31 @@ void window(struct audio_data *audio) {
 
 
 // bin together power spectrum in dB
-int *make_bins(int FFTbufferSize,
-        unsigned int rate,
-        fftw_complex out[FFTbufferSize / 2 + 1],
+int *make_bins(struct audio_data *audio,
         int number_of_bins,
         int channel) {
+    int *bins;
     register int n, i;
     double power[number_of_bins];
+    fftw_complex *out;
     static int bins_left[8192];
     static int bins_right[8192];
+
+    if (channel == LEFT_CHANNEL) {
+        bins = bins_left;
+        out = audio->out_l;
+    } else {
+        bins = bins_right;
+        out = audio->out_r;
+    }
 
     // get total signal power in each bin,
     // and space bins logarithmically.
     // freq[i] = i * rate / FFTbufferSize;
     // so log[i](i) = log(freq[i] * FFTbufferSize / rate);
     // and log[i] equally spaced over bins
-    int imin = floor(LOWER_CUTOFF_FREQ * FFTbufferSize / rate);
-    int imax = fmin(floor(UPPER_CUTOFF_FREQ * FFTbufferSize / rate), (FFTbufferSize / 2 + 1));
+    int imin = floor(LOWER_CUTOFF_FREQ * audio->FFTbufferSize / audio->rate);
+    int imax = fmin(floor(UPPER_CUTOFF_FREQ * audio->FFTbufferSize / audio->rate), (audio->FFTbufferSize / 2 + 1));
 
     memset(power, 0, sizeof(double) * number_of_bins);
 
@@ -71,15 +79,8 @@ int *make_bins(int FFTbufferSize,
         power[n] += (out[i][0] * out[i][0] + out[i][1] * out[i][1]) / i;
     }
 
-    if (channel == LEFT_CHANNEL) {
-        for (n = 0; n < number_of_bins; n++) {
-            bins_left[n] = (int)((power[n] * imax) / (FFTbufferSize * rate));
-        }
-        return bins_left;
-    } else {
-        for (n = 0; n < number_of_bins; n++) {
-            bins_right[n] = (int)((power[n] * imax) / (FFTbufferSize * rate));
-        }
-        return bins_right;
+    for (n = 0; n < number_of_bins; n++) {
+        bins[n] = (int)((power[n] * imax) / (audio->FFTbufferSize * audio->rate));
     }
+    return bins;
 }

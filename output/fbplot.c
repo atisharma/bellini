@@ -11,28 +11,40 @@
 
 
 FT_Library library;
-FT_Face face;
+FT_Face text_face;
+FT_Face audio_face;
 
 
-void init_freetype(char *font) {
+void init_freetype(char *text_font, char*audio_font) {
     int error = FT_Init_FreeType(&library);
-
     if (error) {
         fprintf(stderr,"Freetype could not initialise.\n");
     }
 
     error = FT_New_Face(
             library,
-            font,
+            audio_font,
             0,
-            &face);
-    if (error == FT_Err_Unknown_File_Format) {
+            &audio_face);
+
+    int error2 = FT_New_Face(
+            library,
+            text_font,
+            0,
+            &text_face);
+
+    if (error == FT_Err_Unknown_File_Format || error2 == FT_Err_Unknown_File_Format) {
         fprintf(stderr,"Unsupported font format.\n");
-    } else if (error) {
+    } else if (error || error2) {
         fprintf(stderr,"Font can't be opened.\n");
     }
-      
 } 
+
+void cleanup_freetype() {
+    FT_Done_FreeType(library);
+    FT_Done_Face(text_face);
+    FT_Done_Face(audio_face);
+}
 
 rgb666 rgb_to_rgb666(rgba c) {
     rgb666 c2 = ((c.r >> 2) << 12) | ((c.g >> 2) << 6) | (c.b >> 2);
@@ -185,7 +197,7 @@ void bf_superpose(const buffer buff1, const buffer buff2) {
     }
 }
 
-void bf_text(buffer buff, char *text, int num_chars, int size, int center, uint32_t x, uint32_t y, rgba c) {
+void bf_text(buffer buff, char *text, int num_chars, int size, int center, uint32_t x, uint32_t y, int style, rgba c) {
     // Write text to buff.
     int w = 0;
     int pen_x = 0;
@@ -193,6 +205,14 @@ void bf_text(buffer buff, char *text, int num_chars, int size, int center, uint3
     //int pen_y;
     int n, error;
     rgba c_text = c;
+
+    FT_Face face;
+
+    if (style) {
+        face = text_face;
+    } else {
+        face = audio_face;
+    }
 
     error = FT_Set_Char_Size(
             face,               /* handle to face object           */
@@ -320,6 +340,11 @@ void bf_draw_ray(const buffer buff, int x0, int y0, int r0, int r1, double theta
             bf_set_pixel(buff, (uint32_t)x, (uint32_t)y, c);
         }
     }
+}
+
+void bf_ray_xy(int x0, int y0, int radius, double theta, int *x, int *y) {
+    *x = x0 + (int)(radius * cos(theta * 2 * M_PI / 360));
+    *y = y0 + (int)(radius * sin(theta * 2 * M_PI / 360));
 }
 
 void bf_xtick(const buffer buff, const axes ax, double x, const rgba c) {

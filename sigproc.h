@@ -11,8 +11,6 @@
 
 void window(struct audio_data *audio);
 
-int *make_bins(int FFTbufferSize,
-        unsigned int rate,
-        fftw_complex out[FFTbufferSize / 2 + 1],
+int *make_bins(struct audio_data *audio,
         int number_of_bins,
         int channel);

@@ -10,11 +10,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fftw3.h>
 
 struct audio_data {
     int FFTbufferSize;
     int index;
     double *in_r, *in_l, *windowed_l, *windowed_r;
+    fftw_complex *out_l, *out_r;
     int format;
     unsigned int rate;
     char *source;   // alsa device, fifo path or pulse source

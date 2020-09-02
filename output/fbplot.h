@@ -58,7 +58,9 @@ rgba rgb666_to_rgba(rgb666 c);
 
 rgba tinge_color(rgba c1, rgba c2, double alpha);
 
-void init_freetype(char *font);
+void init_freetype(char *text_font, char*audio_font);
+void cleanup_freetype();
+
 void bf_init(buffer *buff);
 void bf_free_pixels(buffer *buff);
 
@@ -86,13 +88,15 @@ void bf_superpose(const buffer buff1, const buffer buff2);
 
 void bf_grayscale(const buffer buff);
 
-void bf_text(buffer buff, char *text, int num_chars, int center, int size, uint32_t x, uint32_t y, rgba c);
+void bf_text(buffer buff, char *text, int num_chars, int size, int center, uint32_t x, uint32_t y, int style, rgba c);
 
 void bf_draw_line(const buffer buff, uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1, rgba c);
 
 void bf_draw_arc(const buffer buff, int x0, int y0, int radius, double theta0, double theta1, int thickness, rgba c);
 
 void bf_draw_ray(const buffer buff, int x0, int y0, int r0, int r1, double theta, int thickness, rgba c);
+
+void bf_ray_xy(int x0, int y0, int radius, double theta, int *x, int *y);
 
 void bf_xtick(const buffer buff, const axes ax, double x, const rgba c);
 void bf_ytick(const buffer buff, const axes ax, double y, const rgba c);

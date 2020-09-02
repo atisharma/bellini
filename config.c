@@ -194,8 +194,11 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
 
     p->noise_floor = iniparser_getint(ini, "general:noise_floor", -100);
     
-    free(p->font);
-    p->font = strdup(iniparser_getstring(ini, "general:font", "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"));
+    free(p->text_font);
+    p->text_font = strdup(iniparser_getstring(ini, "general:text_font", "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"));
+
+    free(p->audio_font);
+    p->audio_font = strdup(iniparser_getstring(ini, "general:audio_font", "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"));
 
     free(p->vis);
     p->vis = strdup(iniparser_getstring(ini, "general:vis", "fft"));
