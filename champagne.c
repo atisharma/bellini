@@ -494,8 +494,14 @@ as of 0.4.0 all options are specified in config file, see in '/home/username/.co
                     }
                     // main dial
                     bf_draw_arc(buffer_final, x0, y0, r, min_dB * m + c, max_dB * m + c, 5, ax_c);
-                    // dial excess
-                    bf_draw_arc(buffer_final, x0, y0, r+10, c, max_dB * m + c, 5, ax2_c);
+                    // dial excess; glow if hit
+                    if ((ppm_l > -2) || (ppm_r > -2)) {
+                        rgba excess_c = ax2_c;
+                        excess_c.r = 255;
+                        bf_draw_arc(buffer_final, x0, y0, r+10, c, max_dB * m + c, 5, excess_c);
+                    } else {
+                        bf_draw_arc(buffer_final, x0, y0, r+10, c, max_dB * m + c, 5, ax2_c);
+                    }
                     // readings
                     bf_draw_ray(buffer_final, x0, y0, r - 100, r + 20, angle_l, 5, plot_l_c);
                     bf_draw_ray(buffer_final, x0, y0, r - 100, r + 20, angle_r, 5, plot_r_c);
