@@ -15,6 +15,7 @@ Bellini inherits CAVA's input support, so might work with Pulseaudio, fifo (mpd)
 I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a [Pimoroni Hyperpixel 4.0](https://shop.pimoroni.com/products/hyperpixel-4) LCD screen in landscape orientation, and get a smooth 60fps for the FFT vis, using about 50% on one thread, and about 10-15% on the other.
 CPU usage could be improved by further optimisation or by sacrificing visual effects.
 
+[![Here is a preview.](https://img.youtube.com/vi/KULyD5bTMlQ/0.jpg)](https://youtu.be/KULyD5bTMlQ "bellini preview")
 
 ## Features
 
