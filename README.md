@@ -1,19 +1,19 @@
-Champagne
+Bellini
 =========
 
-Champagne is a "friendly fork" (well, more of a butchery) of [CAVA](https://github.com/karlstav/cava/) to provide more a 'scientifically correct' spectrum analyser.
+Bellini is a fork of [CAVA](https://github.com/karlstav/cava/) to provide more a 'scientifically correct' spectrum analyser.
 Much of the heavy lifting and infrastructure was done by the author(s) of cava. So credit to them.
 
-Like CAVA, champagne's goal is to provide a audio spectrum analyser for Linux from various inputs.
-Unlike CAVA, champagne primary goal is accuracy and correctness, and writes directly to the framebuffer for speed and precision.
+Like CAVA, bellini's goal is to provide a audio spectrum analyser for Linux from various inputs.
+Unlike CAVA, bellini primary goal is accuracy and correctness, and while CAVA displays to the terminal, bellini writes directly to the framebuffer. This allows some quite different outputs.
 
 Since the aims are somewhat different, and achieving those aims involved changing a substantial amount of the core code, I forked the project.
 My hope is that some of the ideas developed here will make their way back upstream over time.
 
-Champagne inherits CAVA's input support, so might work with Pulseaudio, fifo (mpd), sndio, alsa, squeezelite and portaudio. It's been successfully tested on squeezelite and ASLA loopback.
+Bellini inherits CAVA's input support, so might work with Pulseaudio, fifo (mpd), sndio, alsa, squeezelite and portaudio. It's been successfully tested on squeezelite and ASLA loopback.
 
-I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a Pimoroni Hyperpixel 4.0 LCD screen in landscape orientation, and get a smooth 60fps for the FFT vis, using about 50% on one thread, and about 10-15% on the other.
-CPU usage could be improved by further optimisation or sacrificing visual effects.
+I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a [Pimoroni Hyperpixel 4.0](https://shop.pimoroni.com/products/hyperpixel-4) LCD screen in landscape orientation, and get a smooth 60fps for the FFT vis, using about 50% on one thread, and about 10-15% on the other.
+CPU usage could be improved by further optimisation or by sacrificing visual effects.
 
 
 ## Features
@@ -35,7 +35,7 @@ Distinguishing features include:
 ## Installing
 
 Installation and compilation should be almost exactly the same as for CAVA. Please refer to those instructions.
-You also need freetype. On Debian and Void, `ft2build.h` is found in `/usr/include/freetype2/` -- on other distributions you may have to change Makefile.am to specify, until I work out how to use automake properly.
+You also need freetype (which you probably already have). On Debian and Void, `ft2build.h` is found in `/usr/include/freetype2/` -- on other distributions you may have to change `Makefile.am` to specify, until I work out how to use automake properly.
 
 The config file should configure the following options:
 
@@ -43,8 +43,8 @@ The config file should configure the following options:
 [general]
 # noise floor is dB from measured peak amplitude
 noise_floor = -100
-text_font = /home/pi/champagne/fonts/digital-7/digital-7.ttf
-audio_font = /home/pi/champagne/fonts/Gill Sans Pro/GillSansMTPro-Condensed.otf
+text_font = /home/pi/bellini/fonts/digital-7/digital-7.ttf
+audio_font = /home/pi/bellini/fonts/Gill Sans Pro/GillSansMTPro-Condensed.otf
 # decay rate for the fading of the display (< 1.0)
 alpha = 0.9
 # vis = ppm

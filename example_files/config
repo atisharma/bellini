@@ -1,8 +1,8 @@
 [general]
 noise_floor = -80
-#text_font = /home/pi/champagne/fonts/DOTMATRI.TTF
-text_font = /home/pi/champagne/fonts/digital-7/digital-7.ttf
-audio_font = /home/pi/champagne/fonts/Gill Sans Pro/GillSansMTPro-Condensed.otf
+#text_font = /home/pi/bellini/fonts/DOTMATRI.TTF
+text_font = /home/pi/bellini/fonts/digital-7/digital-7.ttf
+audio_font = /home/pi/bellini/fonts/Gill Sans Pro/GillSansMTPro-Condensed.otf
 alpha = 0.97
 vis = pcm
 

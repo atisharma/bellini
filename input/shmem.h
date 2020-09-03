@@ -1,4 +1,4 @@
-// header file for shmem, part of champagne.
+// header file for shmem, part of bellini.
 
 #pragma once
 

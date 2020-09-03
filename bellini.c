@@ -63,9 +63,11 @@ void sig_handler(int sig_no) {
     }
 
     if (sig_no == SIGINT) {
-        printf("CTRL-C pressed -- goodbye\n");
+        printf("CTRL-C pressed -- exiting\n");
         clean_exit = true;
+        return;
     }
+
     signal(sig_no, SIG_DFL);
     raise(sig_no);
 }
@@ -140,7 +142,7 @@ Options:\n\
 	-p          path to config file\n\
 	-v          print version\n\
 \n\
-All options are specified in config file, see in '/home/username/.config/champagne/' \n";
+All options are specified in config file, see in '/home/username/.config/bellini/' \n";
 
     // general: handle Ctrl+C and other signals
     struct sigaction action;
@@ -383,7 +385,7 @@ All options are specified in config file, see in '/home/username/.config/champag
         fps_timer = clock();
         double dt = (double)(fps_timer - last_fps_timer) / CLOCKS_PER_SEC;
 
-        // if config file is modified, reloads every 30s
+        // if config file is modified, reloads every 10s
         if ((now % 10) == 0) {
             check_config_changed(configPath,
                     &plot_l_c, &plot_r_c,
@@ -575,6 +577,13 @@ All options are specified in config file, see in '/home/username/.config/champag
 
     }
 
+    /*** exit ***/
+
+    // free screen buffers
+    bf_free_pixels(&buffer_final);
+    bf_free_pixels(&buffer_clock);
+    fb_cleanup();
+
     // tell input thread to terminate
     audio.terminate = 1;
     pthread_join(p_thread, NULL);
@@ -592,11 +601,6 @@ All options are specified in config file, see in '/home/username/.config/champag
     fftw_destroy_plan(p_l);
     fftw_destroy_plan(p_r);
     fftw_cleanup();
-
-    // free screen buffers
-    bf_free_pixels(&buffer_final);
-    bf_free_pixels(&buffer_clock);
-    fb_cleanup();
 
     freetype_cleanup();
 

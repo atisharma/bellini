@@ -1,4 +1,4 @@
-// header file for alsa, part of champagne.
+// header file for alsa, part of bellini.
 
 #pragma once
 

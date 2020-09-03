@@ -70,7 +70,7 @@ void getPulseDefaultSink(void *data) {
     m_pulseaudio_mainloop = pa_mainloop_new();
 
     mainloop_api = pa_mainloop_get_api(m_pulseaudio_mainloop);
-    pulseaudio_context = pa_context_new(mainloop_api, "champagne device list");
+    pulseaudio_context = pa_context_new(mainloop_api, "bellini device list");
 
     // This function connects to the pulse server
     pa_context_connect(pulseaudio_context, NULL, PA_CONTEXT_NOFLAGS, NULL);
@@ -114,7 +114,7 @@ void *input_pulse(void *data) {
     pa_simple *s = NULL;
     int error;
 
-    if (!(s = pa_simple_new(NULL, "champagne", PA_STREAM_RECORD, audio->source, "audio for champagne", &ss,
+    if (!(s = pa_simple_new(NULL, "bellini", PA_STREAM_RECORD, audio->source, "audio for bellini", &ss,
                             NULL, &pb, &error))) {
         sprintf(audio->error_message, __FILE__ ": Could not open pulseaudio source: %s, %s. \
 		To find a list of your pulseaudio sources run 'pacmd list-sources'\n",

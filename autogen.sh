@@ -11,9 +11,9 @@ aclocal
 autoconf
 automake --add-missing
 
-CONFIGDIR=$XDG_CONFIG_HOME/champagne
+CONFIGDIR=$XDG_CONFIG_HOME/bellini
 
-if [ -z "$XDG_CONFIG_HOME" ]; then CONFIGDIR=$HOME/.config/champagne; fi
+if [ -z "$XDG_CONFIG_HOME" ]; then CONFIGDIR=$HOME/.config/bellini; fi
 
 mkdir -p "$CONFIGDIR"
 [ -f "$CONFIGDIR"/config ] || cp example_files/config "$CONFIGDIR"/config

@@ -1,4 +1,4 @@
-// header file for pulse, part of champagne.
+// header file for pulse, part of bellini.
 
 #pragma once
 

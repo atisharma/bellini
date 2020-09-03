@@ -254,7 +254,7 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, struct erro
         return false;
     }
     default:
-        write_errorf(error, "champagne was built without '%s' input support\n",
+        write_errorf(error, "bellini was built without '%s' input support\n",
                      input_method_names[p->im]);
         return false;
     }

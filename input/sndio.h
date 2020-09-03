@@ -1,4 +1,4 @@
-// header file for sndio, part of champagne.
+// header file for sndio, part of bellini.
 
 #pragma once
 
