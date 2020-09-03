@@ -57,4 +57,4 @@ struct error_s {
     int length;
 };
 
-bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colorsOnly, struct error_s *error);
+bool load_config(char configPath[PATH_MAX], struct config_params *p, struct error_s *error);

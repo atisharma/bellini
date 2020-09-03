@@ -128,7 +128,7 @@ bool load_colors(struct config_params *p, dictionary *ini) {
     return true;
 }
 
-bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colorsOnly, struct error_s *error) {
+bool load_config(char configPath[PATH_MAX], struct config_params *p, struct error_s *error) {
     FILE *fp;
 
     // config: creating path to default config file
@@ -177,13 +177,6 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, bool colors
     // config: parse ini
     dictionary *ini;
     ini = iniparser_load(configPath);
-
-    if (colorsOnly) {
-        if (!load_colors(p, ini)) {
-            return false;
-        }
-        return validate_colors(p, error);
-    }
 
     // config: general
     p->alpha = iniparser_getdouble(ini, "general:alpha", 0.95);

@@ -15,13 +15,13 @@ FT_Face text_face;
 FT_Face audio_face;
 
 
-void init_freetype(char *text_font, char*audio_font) {
+void freetype_init(char *text_font, char *audio_font) {
     int error = FT_Init_FreeType(&library);
     if (error) {
         fprintf(stderr,"Freetype could not initialise.\n");
     }
 
-    error = FT_New_Face(
+    int error1 = FT_New_Face(
             library,
             audio_font,
             0,
@@ -33,17 +33,17 @@ void init_freetype(char *text_font, char*audio_font) {
             0,
             &text_face);
 
-    if (error == FT_Err_Unknown_File_Format || error2 == FT_Err_Unknown_File_Format) {
+    if (error1 == FT_Err_Unknown_File_Format || error2 == FT_Err_Unknown_File_Format) {
         fprintf(stderr,"Unsupported font format.\n");
-    } else if (error || error2) {
+    } else if (error1 || error2) {
         fprintf(stderr,"Font can't be opened.\n");
     }
 } 
 
-void cleanup_freetype() {
-    FT_Done_FreeType(library);
+void freetype_cleanup() {
     FT_Done_Face(text_face);
     FT_Done_Face(audio_face);
+    FT_Done_FreeType(library);
 }
 
 rgb666 rgb_to_rgb666(rgba c) {
@@ -120,27 +120,42 @@ void bf_check_col(buffer buff) {
 void bf_blend(const buffer buff1, const buffer buff2, double alpha) {
     // fade b2 into b1, of same size
     // b1 = alpha*b1 + (1-alpha)*b2
-    rgba c1, c2;
+    struct fb_var_screeninfo *vinfo = get_vinfo();
+    register double r1, g1, b1, a1;
+    register double r2, g2, b2, a2;
+    register pixel p;
     for (uint32_t i = 0; i < buff1.size; i++) {
         // separate channels
-        c1 = pixel_to_rgba(buff1.pixels[i]);
-        c2 = pixel_to_rgba(buff2.pixels[i]);
+        p = buff1.pixels[i];
+        r1 = ((p >> vinfo->red.offset) & 0xFF) * alpha;
+        g1 = ((p >> vinfo->green.offset) & 0xFF) * alpha;
+        b1 = ((p >> vinfo->blue.offset) & 0xFF) * alpha;
+        a1 = ((p >> vinfo->transp.offset) & 0xFF) * alpha;
+        p = buff2.pixels[i];
+        r2 = ((p >> vinfo->red.offset) & 0xFF) * (1.0 - alpha);
+        g2 = ((p >> vinfo->green.offset) & 0xFF) * (1.0 - alpha);
+        b2 = ((p >> vinfo->blue.offset) & 0xFF) * (1.0 - alpha);
+        a2 = ((p >> vinfo->transp.offset) & 0xFF) * (1.0 - alpha);
         // blend
-        c1.r = clamp(alpha * c1.r + (1.0 - alpha) * c2.r);
-        c1.g = clamp(alpha * c1.g + (1.0 - alpha) * c2.g);
-        c1.b = clamp(alpha * c1.b + (1.0 - alpha) * c2.b);
-        c1.a = clamp(alpha * c1.a + (1.0 - alpha) * c2.a);
+        p = ((int)r1 << vinfo->red.offset)      |
+            ((int)g1 << vinfo->green.offset)    |
+            ((int)b1 << vinfo->blue.offset)     |
+            ((int)a1 << vinfo->transp.offset);
+        p += ((int)r2 << vinfo->red.offset)     |
+             ((int)g2 << vinfo->green.offset)   |
+             ((int)b2 << vinfo->blue.offset)    |
+             ((int)a2 << vinfo->transp.offset);
         // put back
-        buff1.pixels[i] = rgba_to_pixel(c1);
+        buff1.pixels[i] = p;
     }
 }
 
 void bf_shade(const buffer buff, double alpha) {
     // shade buffer into black (alpha < 1.0) or brighter (alpha > 1.0)
     // buff = alpha*buff
+    struct fb_var_screeninfo *vinfo = get_vinfo();
     register int r, g, b, a;
     register pixel p;
-    struct fb_var_screeninfo *vinfo = get_vinfo();
     for (uint32_t i = 0; i < buff.size; i++) {
         // separate channels
         p = buff.pixels[i];
@@ -153,9 +168,9 @@ void bf_shade(const buffer buff, double alpha) {
         g = (int)(alpha * g);
         b = (int)(alpha * b);
         a = (int)(alpha * a);
-        p = (r << vinfo->red.offset) |
-            (g << vinfo->green.offset) |
-            (b << vinfo->blue.offset) |
+        p = (r << vinfo->red.offset)    |
+            (g << vinfo->green.offset)  |
+            (b << vinfo->blue.offset)   |
             (a << vinfo->transp.offset);
         buff.pixels[i] = p;
     }
@@ -391,10 +406,9 @@ void bf_plot_axes(const buffer buff, const axes ax, const rgba c1, const rgba c2
     bf_xtick(buff, ax2, log10(440 * 32), c2);
 }
 
-void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t num_points, rgba c) {
+void bf_plot_bars(const buffer buff, const axes ax, const int data[], uint32_t num_points, rgba c) {
     // plot some data to the buffer
     register uint32_t x, y, dy;
-    //register int s;
     register int r, g, b, a;
     register pixel p;
     struct fb_var_screeninfo *vinfo = get_vinfo();
@@ -420,6 +434,16 @@ void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t n
                 }
             }
         }
+    }
+}
+
+void bf_plot_line(const buffer buff, const axes ax, const double data[], uint32_t num_points, rgba c) {
+    // plot some data to the buffer
+    register uint32_t x, y;
+    for (uint32_t i=1; i < num_points; i++) {
+        x = (uint32_t)((ax.screen_w * i) / num_points) + ax.screen_x;
+        y = (uint32_t)((ax.screen_h * (data[i] - ax.y_min)) / (ax.y_max - ax.y_min)) + ax.screen_y;
+        bf_set_pixel(buff, x,   y,   c);
     }
 }
 

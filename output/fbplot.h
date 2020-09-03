@@ -58,8 +58,8 @@ rgba rgb666_to_rgba(rgb666 c);
 
 rgba tinge_color(rgba c1, rgba c2, double alpha);
 
-void init_freetype(char *text_font, char*audio_font);
-void cleanup_freetype();
+void freetype_init(char *text_font, char*audio_font);
+void freetype_cleanup();
 
 void bf_init(buffer *buff);
 void bf_free_pixels(buffer *buff);
@@ -103,4 +103,5 @@ void bf_ytick(const buffer buff, const axes ax, double y, const rgba c);
 
 void bf_plot_axes(const buffer buff, const axes ax, const rgba c1, const rgba c2);
 
-void bf_plot_data(const buffer buff, const axes ax, const int data[], uint32_t num_points, rgba c);
+void bf_plot_bars(const buffer buff, const axes ax, const int data[], uint32_t num_points, rgba c);
+void bf_plot_line(const buffer buff, const axes ax, const double data[], uint32_t num_points, rgba c);

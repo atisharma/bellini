@@ -19,25 +19,34 @@
 #include "util.h"
 
 // apply window in-place on audio data
-void window(struct audio_data *audio) {
-    // detrend
-    double l_start = audio->in_l[audio->index];
-    double l_end = audio->in_l[(audio->index + 1) % audio->FFTbufferSize];
-    double r_start = audio->in_r[audio->index];
-    double r_end = audio->in_r[(audio->index + 1) % audio->FFTbufferSize];
+void window(struct audio_data *audio, int type) {
+    double a0, a1, a2, a3;
+    if (type == RECT) {
+        // rectangular window
+        a0=1; a1=0.0; a2=0; a3=0;
+        //a0=0; a1=1.0; a2=0; a3=0;
+    } else if (type == HANN) {
+        // Hann window
+        a0=0.5; a1=0.5; a2=0; a3=0;
+    } else if (type == BLAC) {
+        // Blackman-Nuttall window
+        a0=0.3635819; a1=0.4891775; a2=0.1365995; a3=0.0106411;
+    } else {
+        fprintf(stderr, "Windowing type not implemented");
+        exit(EXIT_FAILURE);
+    }
+    // detrending makes things worse
+    // since there is no instrument drift
+    // and the measurements are naturally centred at zero.
     int n;
-    // Blackman-Nuttall window
-    //double a0=0.3635819, a1=0.4891775, a2=0.1365995, a3=0.0106411;
-    // Hann window
-    double a0=0.5, a1=0.5, a2=0, a3=0;
-    // rectangular window
-    //double a0=1, a1=0.0, a2=0, a3=0;
     double w;
     for (int i = 0; i < audio->FFTbufferSize; i++) {
-        n = (audio->index + i) % audio->FFTbufferSize;
-        w = a0 - a1 * cos(2 * M_PI * n / audio->FFTbufferSize) + a2 * cos(4 * M_PI * n / audio->FFTbufferSize) - a3 * cos(6 * M_PI * n / audio->FFTbufferSize);
-        audio->windowed_l[i] = w * (audio->in_l[n] - l_start - (l_end - l_start) * n / audio->FFTbufferSize);
-        audio->windowed_r[i] = w * (audio->in_r[n] - r_start - (r_end - r_start) * n / audio->FFTbufferSize);
+        // it's reindexed somewhere else, from the look of the waveform
+        //n = (audio->index + i) % audio->FFTbufferSize;
+        n = i;
+        w = a0 - a1 * cos(2 * M_PI * i / audio->FFTbufferSize) + a2 * cos(4 * M_PI * i / audio->FFTbufferSize) - a3 * cos(6 * M_PI * i / audio->FFTbufferSize);
+        audio->windowed_l[i] = w * audio->in_l[n];
+        audio->windowed_r[i] = w * audio->in_r[n];
     }
 }
 

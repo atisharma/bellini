@@ -10,9 +10,7 @@ Unlike CAVA, champagne primary goal is accuracy and correctness, and writes dire
 Since the aims are somewhat different, and achieving those aims involved changing a substantial amount of the core code, I forked the project.
 My hope is that some of the ideas developed here will make their way back upstream over time.
 
-Champagne inherits CAVA's input support, so might work with Pulseaudio, fifo (mpd), sndio, squeezelite and portaudio. It's only tested on squeezelite.
-
-It comes with some nice fresh bugs.
+Champagne inherits CAVA's input support, so might work with Pulseaudio, fifo (mpd), sndio, alsa, squeezelite and portaudio. It's been successfully tested on squeezelite and ASLA loopback.
 
 I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a Pimoroni Hyperpixel 4.0 LCD screen in landscape orientation, and get a smooth 60fps for the FFT vis, using about 50% on one thread, and about 10-15% on the other.
 CPU usage could be improved by further optimisation or sacrificing visual effects.
@@ -22,35 +20,39 @@ CPU usage could be improved by further optimisation or sacrificing visual effect
 
 Distinguishing features include:
 
-- an accurate two-channel amplitude spectrum on log-log plot
-- windowing of the data (Hann window, Blackman-Nuttall and rectangular also implemented with a code recompilation)
-- axes marked off at 20dB intervals (amplitude) and powers of 10 / octaves (frequency)
-- noise floor truncation
+- an accurate two-channel amplitude spectrum on log-log plot (config option `vis=fft`)
+- windowing of the data (Hann window by default; Blackman-Nuttall and rectangular also implemented with a code recompilation)
+- amplitude spectrum axes marked off at 20dB intervals (amplitude) and powers of 10 / octaves (frequency)
+- noise floor truncation (basically the lower axis limit on the amplitude spectrum plot)
 - left/right merged colour schemes
-- a DIN / Type 1 [Peak Programme Meter](https://en.wikipedia.org/wiki/Peak_programme_meter)
+- a DIN / Type 1 [Peak Programme Meter](https://en.wikipedia.org/wiki/Peak_programme_meter) (`vis=ppm`)
+- a simple plot of the waveform (`vis=pcm`)
 - fast direct framebuffer output
 - a natty clock
+- reloading of the config file if it's been modified and the audio is paused
 
 
 ## Installing
 
 Installation and compilation should be almost exactly the same as for CAVA. Please refer to those instructions.
-You also need freetype. On Debian and Void, `ft2build.h` is found in `/usr/include/freetype2/` -- you may have to change Makefile.am to specify, until I work out how to use automake properly.
+You also need freetype. On Debian and Void, `ft2build.h` is found in `/usr/include/freetype2/` -- on other distributions you may have to change Makefile.am to specify, until I work out how to use automake properly.
 
-The config file should contain the following options:
+The config file should configure the following options:
 
 ```
 [general]
 # noise floor is dB from measured peak amplitude
 noise_floor = -100
-font = /home/pi/champagne/fonts/digital-7/digital-7.ttf
-# decay for the fading of the display
+text_font = /home/pi/champagne/fonts/digital-7/digital-7.ttf
+audio_font = /home/pi/champagne/fonts/Gill Sans Pro/GillSansMTPro-Condensed.otf
+# decay rate for the fading of the display (< 1.0)
 alpha = 0.9
 # vis = ppm
+# vis = pcm
 vis = fft
 
 [input]
-# only tested with squeezelite/shmem
+# only tested with squeezelite/shmem and ALSA loopback
 method = shmem
 source = /squeezelite-dc:a6:32:c0:5c:0d
 
@@ -62,10 +64,10 @@ ax_2 =   "#FF2100"
 ax =     "#468800"
 text =   "#FF2100"
 audio =  "#888888"
-
 ```
 
 The font option must be the full (not relative) path of the font file (look under /usr/share/fonts/).
+The fonts I'm using in this example aren't free so you will need to replace them with your choices.
 
 To use with a Hyperpixel 4.0, your `/boot/config.txt` should contain:
 
@@ -83,14 +85,13 @@ display_lcd_rotate=1
 ```
 
 and possibly `arm_64bit=1` if you are using 64 bit.
-Notice the screen rotation. Get that wrong and the code will segfault.
+Notice the screen rotation. Get that wrong and the code will probably segfault.
 
 
 Capturing audio
 ---------------
 
-Audio input should be exactly the same as for CAVA. Please refer to those instructions.
-I've only tested the squeezelite input.
+Audio input should be the same as for CAVA. Please refer to those instructions.
 
 
 Troubleshooting & FAQ
@@ -113,5 +114,5 @@ Some assumptions are hard-coded (for instance the size of the framebuffer, the w
 
 ### Bugs
 
-- Sometimes one of the channels disappears from the output.
-- Input other than squeezelite's shmem is untested and may be broken.
+- Input other than squeezelite's shmem and ASLA is untested and may be broken.
+- The pause detection currently only works with squeezelite
