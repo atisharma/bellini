@@ -4,20 +4,19 @@ noise_floor = -80
 text_font = /home/pi/champagne/fonts/digital-7/digital-7.ttf
 audio_font = /home/pi/champagne/fonts/Gill Sans Pro/GillSansMTPro-Condensed.otf
 alpha = 0.97
-vis = ppm
+vis = pcm
 
 [input]
 method = shmem
 source = /squeezelite-dc:a6:32:c0:5c:0d
 
 [color]
-#plot_l = "#BB2222"
-#plot_r = "#22BB22"
+plot_r = "#B9FF00"
+plot_l = "#3307FF"
 ax =     "#C1BDB2"
 ax_2 =   "#B33B2D"
 text =   "#FF2100"
 audio =  "#C1BDB2"
-#audio =  "#0000FF"
 
 # some nice phosphor colours
 #56ff00		# P1

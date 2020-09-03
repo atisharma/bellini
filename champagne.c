@@ -378,9 +378,18 @@ All options are specified in config file, see in '/home/username/.config/champag
 
     while (!clean_exit) {
 
+        time(&now);
         last_fps_timer = fps_timer;
         fps_timer = clock();
         double dt = (double)(fps_timer - last_fps_timer) / CLOCKS_PER_SEC;
+
+        // if config file is modified, reloads every 30s
+        if ((now % 10) == 0) {
+            check_config_changed(configPath,
+                    &plot_l_c, &plot_r_c,
+                    &ax_c, &ax2_c,
+                    &text_c, &audio_c);
+        }
 
 #ifdef NDEBUG
         // framebuffer vis
@@ -403,11 +412,6 @@ All options are specified in config file, see in '/home/username/.config/champag
             // wait, then check if running again.
             struct timespec sleep_mode_timer = {.tv_sec = 0, .tv_nsec = 3e8};
             nanosleep(&sleep_mode_timer, NULL);
-            // if config file is modified, reloads
-            check_config_changed(configPath,
-                    &plot_l_c, &plot_r_c,
-                    &ax_c, &ax2_c,
-                    &text_c, &audio_c);
             continue;
 
         } else if (!strcmp("fft", p.vis)) {
@@ -543,10 +547,10 @@ All options are specified in config file, see in '/home/username/.config/champag
             bf_text(buffer_final, textstr, 19, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 110, 0, audio_c);
         end debugging info */
 
-        // stuff common to all vis
+        // stuff common to all vis follows
         fps = fps * 0.995 + (1.0 - 0.995) / dt;
 
-        time(&now);
+        // timer stuff
         if ((now % 30) > 25) {
             // show FPS
             sprintf(textstr, "%3.0ffps", fps);

@@ -29,7 +29,7 @@ Distinguishing features include:
 - a simple plot of the waveform (`vis=pcm`)
 - fast direct framebuffer output
 - a natty clock
-- reloading of the config file if it's been modified and the audio is paused
+- reloading of the config file if it's been modified
 
 
 ## Installing
