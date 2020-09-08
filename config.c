@@ -15,18 +15,17 @@
 
 enum input_method default_methods[] = {
     INPUT_FIFO,
-    INPUT_PORTAUDIO,
     INPUT_ALSA,
     INPUT_PULSE,
 };
 
 const char *input_method_names[] = {
-    "fifo", "portaudio", "alsa", "pulse", "sndio", "shmem",
+    "fifo", "alsa", "pulse", "sndio", "shmem",
 };
 
 const bool has_input_method[] = {
     true, /** Always have at least FIFO and shmem input. */
-    HAS_PORTAUDIO, HAS_ALSA, HAS_PULSE, HAS_SNDIO, true,
+    HAS_ALSA, HAS_PULSE, HAS_SNDIO, true,
 };
 
 enum input_method input_method_by_name(const char *str) {
@@ -235,11 +234,6 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, struct erro
         p->audio_source =
             strdup(iniparser_getstring(ini, "input:source", "/squeezelite-00:00:00:00:00:00"));
         break;
-#ifdef PORTAUDIO
-    case INPUT_PORTAUDIO:
-        p->audio_source = strdup(iniparser_getstring(ini, "input:source", "auto"));
-        break;
-#endif
     case INPUT_MAX: {
         char supported_methods[255] = "";
         for (int i = 0; i < INPUT_MAX; i++) {

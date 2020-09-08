@@ -27,10 +27,6 @@ if ALSA
     bellini_SOURCES += input/alsa.c
 endif
 
-if PORTAUDIO
-    bellini_SOURCES += input/portaudio.c
-endif
-
 if PULSE
     bellini_SOURCES += input/pulse.c
 endif

@@ -33,7 +33,6 @@
 #include "input/common.h"
 #include "input/alsa.h"
 #include "input/fifo.h"
-#include "input/portaudio.h"
 #include "input/pulse.h"
 #include "input/shmem.h"
 #include "input/sndio.h"
@@ -355,12 +354,6 @@ All options are specified in config file, see in '/home/username/.config/bellini
         }
         debug("got format: %d and rate %d\n", audio.format, audio.rate);
         break;
-#ifdef PORTAUDIO
-    case INPUT_PORTAUDIO:
-        thr_id = pthread_create(&p_thread, NULL, input_portaudio, (void *)&audio);
-        audio.rate = 44100;
-        break;
-#endif
     default:
         exit(EXIT_FAILURE); // Can't happen.
     }

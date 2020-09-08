@@ -8,10 +8,11 @@ assignees: ''
 ---
 
 **When/where was the bug introduced?**
-- Are you using cava from a package repository, like AUR?
+- Are you using bellini from a package repository, like AUR?
 - If so, check out the master branch here, is your issue already resolved?
 - Don't know how to clone, compile source code? File report to package maintainer instead.
 - try using git bisect to find out where the bug was introduced.
+- is your issue solved upstream in cava?
 
 **Describe the bug**
 A clear and concise description of what the bug is.
@@ -30,7 +31,7 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Desktop (please complete the following information):**
- - OS: [e.g. macOS, Ubuntu]
+ - OS / distribution: [e.g. Ubuntu]
  - Version [e.g. 22]
 
 **Terminal emulator**

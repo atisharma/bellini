@@ -10,12 +10,13 @@ Unlike CAVA, bellini primary goal is accuracy and correctness, and while CAVA di
 Since the aims are somewhat different, and achieving those aims involved changing a substantial amount of the core code, I forked the project.
 My hope is that some of the ideas developed here will make their way back upstream over time.
 
-Bellini inherits CAVA's input support, so might work with Pulseaudio, fifo (mpd), sndio, alsa, squeezelite and portaudio. It's been successfully tested on squeezelite and ASLA loopback.
+Bellini inherits CAVA's input support, so might work with Pulseaudio, fifo (mpd), sndio, alsa and squeezelite. It's been successfully tested on squeezelite and ASLA loopback.
 
 I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a [Pimoroni Hyperpixel 4.0](https://shop.pimoroni.com/products/hyperpixel-4) LCD screen in landscape orientation, and get a smooth 60fps for the FFT vis, using about 50% on one thread, and about 10-15% on the other.
+On my desktop with 4k screen, the display is very choppy, but it's not really meant for that.
 CPU usage could be improved by further optimisation or by sacrificing visual effects.
 
-Here is a preview video.
+Here is a preview video. It's smoother in real life, because of the interaction with the phone's video frame rate.
 
 [![Here is a preview.](https://img.youtube.com/vi/KULyD5bTMlQ/0.jpg)](https://youtu.be/KULyD5bTMlQ "bellini preview")
 

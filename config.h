@@ -7,12 +7,6 @@
 
 #define MAX_ERROR_LEN 1024
 
-#ifdef PORTAUDIO
-#define HAS_PORTAUDIO true
-#else
-#define HAS_PORTAUDIO false
-#endif
-
 #ifdef ALSA
 #define HAS_ALSA true
 #else
@@ -35,7 +29,6 @@
 // multiple are supported and configured.
 enum input_method {
     INPUT_FIFO,
-    INPUT_PORTAUDIO,
     INPUT_ALSA,
     INPUT_PULSE,
     INPUT_SNDIO,
