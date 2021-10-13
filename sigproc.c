@@ -83,7 +83,7 @@ int *make_bins(struct audio_data *audio,
     for (i = imin; i < imax; i++) {
         // signal power
         // log bin spacing, nearest bin
-        n = (int)(number_of_bins * (log(i) - log(imin)) / log(imax / imin));
+        n = (int)(number_of_bins * (log(i) - log(imin)) / (log(imax) - log(imin)));
         // integrating over bins, multiply by 1/f (i here) for log f ordinate
         power[n] += (out[i][0] * out[i][0] + out[i][1] * out[i][1]) / i;
     }
