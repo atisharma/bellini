@@ -11,7 +11,7 @@ M_CPPFLAGS = -DSYSTEM_LIBINIPARSER=@SYSTEM_LIBINIPARSER@
 bin_PROGRAMS = bellini
 bellini_SOURCES = bellini.c config.c input/common.c input/fifo.c input/shmem.c \
 					sigproc.c \
-					output/framebuffer.c output/fbplot.c
+					output/render.c output/fbplot.c
 bellini_LDFLAGS = -L/usr/local/lib -Wl,-rpath /usr/local/lib
 bellini_CPPFLAGS = -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(VERSION)\" \
            -D_POSIX_SOURCE -D _POSIX_C_SOURCE=200809L -D_XOPEN_SOURCE_EXTENDED

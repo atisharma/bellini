@@ -78,7 +78,8 @@ bool validate_colors(void *params, void *err) {
             (!validate_color(p->ax_col)) ||
             (!validate_color(p->ax_2_col)) ||
             (!validate_color(p->text_col)) ||
-            (!validate_color(p->audio_col))
+            (!validate_color(p->audio_col)) ||
+            (!validate_color(p->osc_col))
             ) {
         write_errorf(error, "The value for some color is invalid. It can be one of the 7 "
                             "named colors.\n");
@@ -94,11 +95,11 @@ bool validate_config(struct config_params *p, struct error_s *error) {
         return false;
     }
 
-    // validate: alpha
-    if (p->alpha < 0) {
-        p->alpha = 0;
-    } else if (p->alpha >= 1.0) {
-        p->alpha = 0.99999;
+    // validate: persistence
+    if (p->persistence < 0) {
+        p->persistence = 0;
+    } else if (p->persistence >= 1.0) {
+        p->persistence = 0.99999;
     }
 
     return true;
@@ -123,6 +124,9 @@ bool load_colors(struct config_params *p, dictionary *ini) {
 
     free(p->audio_col);
     p->audio_col = strdup(iniparser_getstring(ini, "color:audio", "#FF5000"));
+
+    free(p->osc_col);
+    p->osc_col = strdup(iniparser_getstring(ini, "color:oscilliscope", "#FF5000"));
 
     return true;
 }
@@ -178,13 +182,19 @@ bool load_config(char configPath[PATH_MAX], struct config_params *p, struct erro
     ini = iniparser_load(configPath);
 
     // config: general
-    p->alpha = iniparser_getdouble(ini, "general:alpha", 0.95);
+    p->persistence = iniparser_getdouble(ini, "general:persistence", 0.95);
 
     if (!load_colors(p, ini)) {
         return false;
     }
 
     p->noise_floor = iniparser_getint(ini, "general:noise_floor", -100);
+
+    p->height = iniparser_getint(ini, "output:height", 480);
+    p->width = iniparser_getint(ini, "output:width", 800);
+    p->rotate = iniparser_getint(ini, "output:rotate", 0);
+
+    p->fullscreen = !strcmp(iniparser_getstring(ini, "output:fullscreen", "false"), "true");
     
     free(p->text_font);
     p->text_font = strdup(iniparser_getstring(ini, "general:text_font", "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf"));

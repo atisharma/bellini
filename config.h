@@ -37,12 +37,13 @@ enum input_method {
 };
 
 struct config_params {
-    char *plot_l_col, *plot_r_col, *ax_col, *ax_2_col, *text_col, *audio_col;
+    char *plot_l_col, *plot_r_col, *ax_col, *ax_2_col, *text_col, *audio_col, *osc_col;
     char *audio_source, *text_font, *audio_font, *vis;
-    double alpha, noise_floor;
+    double persistence, noise_floor;
     double *userEQ;
     enum input_method im;
-    int col, bgcol, fifoSample, fifoSampleBits;
+    bool fullscreen;
+    int col, bgcol, fifoSample, fifoSampleBits, height, width, rotate;
 };
 
 struct error_s {

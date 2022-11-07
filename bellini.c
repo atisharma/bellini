@@ -29,6 +29,7 @@
 #include "debug.h"
 #include "config.h"
 #include "sigproc.h"
+#include "util.h"
 
 #include "input/common.h"
 #include "input/alsa.h"
@@ -75,7 +76,7 @@ void sig_handler(int sig_no) {
 void check_config_changed(char *configPath,
         rgba *plot_l_c, rgba *plot_r_c,
         rgba *ax_c, rgba *ax2_c,
-        rgba *text_c, rgba *audio_c) {
+        rgba *text_c, rgba *audio_c, rgba *osc_c) {
     // reload if config file has been modified
     struct stat config_stat;
     static time_t last_time = 0;
@@ -107,6 +108,8 @@ void check_config_changed(char *configPath,
                 text_c->r = r; text_c->g = g; text_c->b = b;
                 sscanf(p.audio_col, "#%02x%02x%02x", &r, &g, &b);
                 audio_c->r = r; audio_c->g = g; audio_c->b = b;
+                sscanf(p.osc_col, "#%02x%02x%02x", &r, &g, &b);
+                osc_c->r = r; osc_c->g = g; osc_c->b = b;
             }
         }
     }
@@ -188,6 +191,7 @@ All options are specified in config file, see in '/home/username/.config/bellini
     freetype_init(p.text_font, p.audio_font);
 
     // config: plot colours
+    // TODO: use parse_color
     uint32_t r, g, b, a=0;
     sscanf(p.plot_l_col, "#%02x%02x%02x", &r, &g, &b);
     rgba plot_l_c   = {r, g, b, a};
@@ -201,15 +205,18 @@ All options are specified in config file, see in '/home/username/.config/bellini
     rgba text_c   = {r, g, b, a};
     sscanf(p.audio_col, "#%02x%02x%02x", &r, &g, &b);
     rgba audio_c   = {r, g, b, a};
+    sscanf(p.osc_col, "#%02x%02x%02x", &r, &g, &b);
+    rgba osc_c   = {r, g, b, a};
+    rgba bg_c   = {0, 0, 0, 0};
 
-    /*** set up framebuffer display ***/
+    /*** set up sdl display ***/
 
     // left channel axes
     axes ax_l;
     ax_l.screen_x = 0;
     ax_l.screen_y = 0;
-    ax_l.screen_w = FRAMEBUFFER_WIDTH - 1;
-    ax_l.screen_h = FRAMEBUFFER_HEIGHT;
+    ax_l.screen_w = p.width - 1;
+    ax_l.screen_h = p.height;
     ax_l.x_min = log10(LOWER_CUTOFF_FREQ);
     ax_l.x_max = log10(UPPER_CUTOFF_FREQ);
     ax_l.y_min = -1000;    // dB
@@ -221,15 +228,15 @@ All options are specified in config file, see in '/home/username/.config/bellini
 
     int number_of_bars = ax_l.screen_w / 2;
 
-    // framebuffer plotting init
-    fb_setup();
-    fb_clear();
-
+    // plotting init
+    int window_h = p.height;
+    int window_w = p.width;
+    sdl_init(window_w, window_h, &text_c, &bg_c, p.rotate, p.fullscreen);
     buffer buffer_final;
-    bf_init(&buffer_final);
+    bf_init(&buffer_final, p.width, p.height);
     bf_clear(buffer_final);
     buffer buffer_clock;
-    bf_init(&buffer_clock);
+    bf_init(&buffer_clock, p.width, p.height);
 
     /*** set up audio processing ***/
 
@@ -284,7 +291,7 @@ All options are specified in config file, see in '/home/username/.config/bellini
         if (is_loop_device_for_sure(audio.source)) {
             if (directory_exists("/sys/")) {
                 if (!directory_exists("/sys/module/snd_aloop/")) {
-                    fb_cleanup();
+                    sdl_cleanup();
                     fprintf(stderr,
                             "Linux kernel module \"snd_aloop\" does not seem to  be loaded.\n"
                             "Maybe run \"sudo modprobe snd_aloop\".\n");
@@ -303,7 +310,7 @@ All options are specified in config file, see in '/home/username/.config/bellini
             nanosleep(&req, NULL);
             n++;
             if (n > 2000) {
-                fb_cleanup();
+                sdl_cleanup();
                 fprintf(stderr, "could not get rate and/or format, problems with audio thread? "
                                 "quiting...\n");
                 exit(EXIT_FAILURE);
@@ -346,7 +353,7 @@ All options are specified in config file, see in '/home/username/.config/bellini
             nanosleep(&req, NULL);
             n++;
             if (n > 2000) {
-                fb_cleanup();
+                sdl_cleanup();
                 fprintf(stderr, "could not get rate and/or format, problems with audio thread? "
                                 "quiting...\n");
                 exit(EXIT_FAILURE);
@@ -383,15 +390,13 @@ All options are specified in config file, see in '/home/username/.config/bellini
             check_config_changed(configPath,
                     &plot_l_c, &plot_r_c,
                     &ax_c, &ax2_c,
-                    &text_c, &audio_c);
+                    &text_c, &audio_c, &osc_c);
         }
 
 #ifdef NDEBUG
         // framebuffer vis
 
-        // wait for screen to be ready
-        fb_vsync();
-        bf_blit(buffer_final);
+        bf_blit(buffer_final, 8, p.rotate);
 
         if (!audio.running) {
             // if audio is paused wait and continue
@@ -430,7 +435,7 @@ All options are specified in config file, see in '/home/username/.config/bellini
                 ax_r.y_min = peak_dB + p.noise_floor;
             }
 
-            bf_shade(buffer_final, p.alpha);
+            bf_shade(buffer_final, p.persistence);
             // plot spectrum
             bf_plot_bars(buffer_final, ax_l, bins_right, number_of_bars, plot_l_c);
             bf_plot_bars(buffer_final, ax_r, bins_left, number_of_bars, plot_r_c);
@@ -453,6 +458,21 @@ All options are specified in config file, see in '/home/username/.config/bellini
             bf_clear(buffer_final);
             bf_plot_line(buffer_final, ax_l, audio.in_l, audio.FFTbufferSize, plot_l_c);
             bf_plot_line(buffer_final, ax_r, audio.in_r, audio.FFTbufferSize, plot_r_c);
+
+        } else if (!strcmp("osc", p.vis)) {
+            // oscilliscope waveform plotter to framebuffer
+            // set plotting axes
+            // TODO: move this to an axes update function
+            for (int n = 0; n < audio.FFTbufferSize; n++) {
+                ax_l.y_max = fmax(ax_l.y_max, audio.in_l[n]);
+                ax_l.y_min = fmin(ax_l.y_min, audio.in_l[n]);
+                ax_l.y_max = fmax(ax_l.y_max, audio.in_r[n]);
+                ax_l.y_min = fmin(ax_l.y_min, audio.in_r[n]);
+                ax_r.y_max = ax_l.y_max;
+                ax_r.y_min = ax_l.y_min;
+            }
+            // plot waveform
+            bf_plot_osc(buffer_final, ax_l, audio.in_l, audio.in_r, audio.FFTbufferSize, osc_c);
 
         } else {
             // PPM
@@ -575,7 +595,6 @@ All options are specified in config file, see in '/home/username/.config/bellini
     // free screen buffers
     bf_free_pixels(&buffer_final);
     bf_free_pixels(&buffer_clock);
-    fb_cleanup();
 
     // tell input thread to terminate
     audio.terminate = 1;
@@ -596,6 +615,7 @@ All options are specified in config file, see in '/home/username/.config/bellini
     fftw_cleanup();
 
     freetype_cleanup();
+    sdl_cleanup();
 
     return exit_condition;
 }

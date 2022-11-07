@@ -267,6 +267,30 @@ else
 fi
 
 
+dnl ######################
+dnl checking for sdl2
+dnl ######################
+AC_ARG_ENABLE([output_sdl],
+  AS_HELP_STRING([--disable-output-sdl],
+    [do not include support for output with sdl])
+)
+AS_IF([test "x$enable_output_sdl" != "xno"], [
+AC_CHECK_LIB(SDL2,SDL_Init, have_sdl=yes, have_sdl=no)
+    if [[ $have_sdl = "yes" ]] ; then
+      LIBS="$LIBS -lSDL2 -lSDL2_ttf"
+      CPPFLAGS="$CPPFLAGS -DSDL"
+    fi
+
+    if [[ $have_fftw = "no" ]] ; then
+      AC_MSG_NOTICE([INFO: building without sdl support])
+    fi
+],
+  [have_sdl=no]
+)
+
+AM_CONDITIONAL([SDL], [test "x$have_sdl" = "xyes"])
+
+
 dnl ############################
 dnl Set font directory
 dnl ############################
