@@ -354,12 +354,12 @@ All options are specified in config file, see in '/home/username/.config/bellini
             n++;
             if (n > 2000) {
                 sdl_cleanup();
-                fprintf(stderr, "could not get rate and/or format, problems with audio thread? "
+                fprintf(stderr, "could not get rate problems with audio thread? "
                                 "quiting...\n");
                 exit(EXIT_FAILURE);
             }
         }
-        debug("got format: %d and rate %d\n", audio.format, audio.rate);
+        debug("got audio rate %d\n", audio.rate);
         break;
     default:
         exit(EXIT_FAILURE); // Can't happen.
@@ -370,7 +370,7 @@ All options are specified in config file, see in '/home/username/.config/bellini
     // loop-scope variables
     time_t now;
     clock_t fps_timer = 10;
-    clock_t last_fps_timer = 11;
+    clock_t last_fps_timer = 0;
     double fps = 30;
     char textstr[40];
     int length;
@@ -381,9 +381,10 @@ All options are specified in config file, see in '/home/username/.config/bellini
     while (!clean_exit) {
 
         time(&now);
+
         last_fps_timer = fps_timer;
         fps_timer = clock();
-        double dt = (double)(fps_timer - last_fps_timer) / CLOCKS_PER_SEC;
+        int dt_ms = (fps_timer - last_fps_timer) * 1000 / CLOCKS_PER_SEC;
 
         // if config file is modified, reloads every 10s
         if ((now % 10) == 0) {
@@ -396,7 +397,7 @@ All options are specified in config file, see in '/home/username/.config/bellini
 #ifdef NDEBUG
         // framebuffer vis
 
-        bf_blit(buffer_final, 8, p.rotate);
+        bf_blit(buffer_final, 15, p.rotate);
 
         if (!audio.running) {
             // if audio is paused wait and continue
@@ -440,6 +441,16 @@ All options are specified in config file, see in '/home/username/.config/bellini
             bf_plot_bars(buffer_final, ax_l, bins_right, number_of_bars, plot_l_c);
             bf_plot_bars(buffer_final, ax_r, bins_left, number_of_bars, plot_r_c);
             bf_plot_axes(buffer_final, ax_l, ax_c, ax2_c);
+
+            // sleep to time with the shmem input refresh rate
+            struct timespec req = {.tv_sec = 0, .tv_nsec = 2e9 / 3000};
+            nanosleep(&req, NULL);
+
+            //// test block
+            //bf_clear(buffer_final);
+            //time(&now);
+            //length = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
+            //bf_text(buffer_final, textstr, length, 64, true, 0, 200, 1, plot_l_c);
 
         } else if (!strcmp("pcm", p.vis)) {
             // waveform plotter to framebuffer
@@ -505,8 +516,8 @@ All options are specified in config file, see in '/home/username/.config/bellini
             // the pole at -1.3545 corresponds to 20dB decay / 1.7s
             // as per Type I IEC 60268-10 (DIN PPM) spec.
             // ppm_l, ppm_r are the meter readings in dB.
-            ppm_l = exp(-1.3545 * dt) * ppm_l + fmax(20 * log10(peak_l) - 80.3, min_dB) * dt;
-            ppm_r = exp(-1.3545 * dt) * ppm_r + fmax(20 * log10(peak_r) - 80.3, min_dB) * dt;
+            ppm_l = exp(-1.3545 * dt_ms / 1000) * ppm_l + fmax(20 * log10(peak_l) - 80.3, min_dB) * dt_ms / 1000;
+            ppm_r = exp(-1.3545 * dt_ms / 1000) * ppm_r + fmax(20 * log10(peak_r) - 80.3, min_dB) * dt_ms / 1000;
             double angle_l = ppm_l * m + c;
             double angle_r = ppm_r * m + c;
             // Draw left and right needles on one dial.
@@ -563,7 +574,7 @@ All options are specified in config file, see in '/home/username/.config/bellini
         end debugging info */
 
         // stuff common to all vis follows
-        fps = fps * 0.995 + (1.0 - 0.995) / dt;
+        fps = fps * 0.95 + (1.0 - 0.95) * 1000.0 / dt_ms;
 
         // timer stuff
         if ((now % 30) > 25) {

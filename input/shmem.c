@@ -10,12 +10,6 @@ typedef unsigned int u32_t;
 typedef short s16_t;
 //int rc;
 
-// See cava issue #375
-// Hard-coded in squeezelite's output_vis.c, but
-// this should be the same as mmap_area->buf_size
-// if you were to dynamically allocate.
-#define VIS_BUF_SIZE 16384
-
 // format of shmem area, see squeezelite's output_vis.h
 typedef struct {
     pthread_rwlock_t rwlock;
@@ -30,6 +24,7 @@ typedef struct {
 // input: SHMEM
 void *input_shmem(void *data) {
     struct audio_data *audio = (struct audio_data *)data;
+    audio->format = 0;
     vis_t *mmap_area;
     int fd; /* file descriptor to mmaped area */
     int mmap_count = sizeof(vis_t);

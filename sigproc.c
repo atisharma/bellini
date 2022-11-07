@@ -52,9 +52,7 @@ void window(struct audio_data *audio, int type) {
 
 
 // bin together power spectrum in dB
-int *make_bins(struct audio_data *audio,
-        int number_of_bins,
-        int channel) {
+int *make_bins(struct audio_data *audio, int number_of_bins, int channel) {
     int *bins;
     register int n, i;
     double power[number_of_bins];
@@ -75,7 +73,7 @@ int *make_bins(struct audio_data *audio,
     // freq[i] = i * rate / FFTbufferSize;
     // so log[i](i) = log(freq[i] * FFTbufferSize / rate);
     // and log[i] equally spaced over bins
-    int imin = floor(LOWER_CUTOFF_FREQ * audio->FFTbufferSize / audio->rate);
+    int imin = floor(LOWER_CUTOFF_FREQ * audio->FFTbufferSize / audio->rate) + 1;
     int imax = fmin(floor(UPPER_CUTOFF_FREQ * audio->FFTbufferSize / audio->rate), (audio->FFTbufferSize / 2 + 1));
 
     memset(power, 0, sizeof(double) * number_of_bins);
@@ -85,6 +83,10 @@ int *make_bins(struct audio_data *audio,
         // log bin spacing, nearest bin
         n = (int)(number_of_bins * (log(i) - log(imin)) / (log(imax) - log(imin)));
         // integrating over bins, multiply by 1/f (i here) for log f ordinate
+
+        // hack for testing
+        //printf("i: %d, imin: %d, imax: %d, n: %d, N: %d\n", i, imin, imax, n, number_of_bins);
+
         power[n] += (out[i][0] * out[i][0] + out[i][1] * out[i][1]) / i;
     }
 

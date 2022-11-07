@@ -16,12 +16,9 @@ SDL_Event e;
 SDL_Color fg_color = {0};
 SDL_Color bg_color = {0};
 
-uint64_t fps_timer = 0;
-
 // get the fullscreen size
 //int w, h;
 //SDL_GetRendererOutputSize(renderer, &w, &h);
-
 
 void parse_color(char *color_string, SDL_Color *color) {
     if (color_string[0] == '#') {
@@ -67,7 +64,7 @@ void sdl_init(int w, int h, rgba *fg_color, rgba *bg_color, int rotate, bool ful
     if (fullscreen) {
         SDL_SetWindowFullscreen(gWindow, SDL_WINDOW_FULLSCREEN);
     }
-    SDL_RenderSetVSync(gRenderer, 1);
+    //SDL_RenderSetVSync(gRenderer, 1);
     SDL_SetRenderDrawColor(gRenderer, bg_color->r, bg_color->g, bg_color->b, bg_color->a);
     SDL_RenderClear(gRenderer);
 
@@ -115,7 +112,10 @@ int sdl_text(SDL_Texture *target, TTF_Font *font, char *text, int center, uint32
 }
 */
 
-int sdl_blit(const buffer buff, int frame_time, int rotate) {
+int sdl_blit(const buffer buff, int frame_time_ms, int rotate) {
+
+    // SDL_Delay doesn't seem to work?
+    SDL_Delay(frame_time_ms);
 
     int rc = 0, window_w, window_h;
     SDL_GetWindowSize(gWindow, &window_w, &window_h);
@@ -123,7 +123,6 @@ int sdl_blit(const buffer buff, int frame_time, int rotate) {
     // texture matches buffer dimensions (not yet rotated)
     SDL_UpdateTexture(gTarget, NULL, buff.pixels, buff.w * sizeof(pixel));
 
-    //SDL_RenderClear(gRenderer);
     // work around https://stackoverflow.com/questions/28123292/sdl-rendersetscale-incorrectly-applies-to-rotated-bitmaps-in-sdl2-2-0-3
     if (rotate%2) {
         // scaling is applied before rotation
@@ -132,12 +131,8 @@ int sdl_blit(const buffer buff, int frame_time, int rotate) {
         SDL_RenderSetScale(gRenderer, s * window_h/buff.w, s * window_h/buff.h);
     }
     SDL_RenderCopyExF(gRenderer, gTarget, NULL, NULL, rotate * 90, NULL, FLIP);
-    SDL_RenderPresent(gRenderer);
 
-    // SDL_Delay doesn't seem to work?
-    uint64_t elapsed = SDL_GetTicks64() - fps_timer;
-    SDL_Delay(min(frame_time - elapsed, (uint64_t)frame_time));
-    fps_timer = SDL_GetTicks64();
+    SDL_RenderPresent(gRenderer);
 
     SDL_PollEvent(&e);
     if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)

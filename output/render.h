@@ -23,6 +23,6 @@ void parse_color(char *color_string, SDL_Color *color);
 int load_font(TTF_Font* font, char* font_name, int ptsize);
 void sdl_init(int w, int h, rgba *fg_color, rgba *bg_color, int rotate, bool fullscreen);
 int sdl_text(char* text, int length);
-int sdl_blit(const buffer buff, int frame_time, int rotate);
+int sdl_blit(const buffer buff, int frame_time_ms, int rotate);
 void sdl_cleanup(void);
 

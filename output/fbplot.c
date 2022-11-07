@@ -392,28 +392,26 @@ void bf_plot_axes(const buffer buff, const axes ax, const rgba c1, const rgba c2
 void bf_plot_bars(const buffer buff, const axes ax, const int data[], uint32_t num_points, rgba c) {
     // plot some data to the buffer
     register uint32_t x, y, dy;
-    register int r, g, b, a;
+    register uint8_t r, g, b, a;
     register pixel p;
-    for (uint32_t i=1; i < num_points; i++) {
+    for (uint32_t i=0; i < num_points; i++) {
         y = (uint32_t)(ax.screen_h * (10 * log10(data[i]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
-        if (y > ax.screen_y) {
+        if (y > ax.screen_y && y < buff.h) {
             x = (uint32_t)((ax.screen_w * i) / num_points) + ax.screen_x;
             // draw peaks
             bf_set_pixel(buff, x,   y,   c);
             // draw faded lines up to y
             // raw pixels for speed
-            for (dy = ax.screen_y; dy < y; dy ++) {
+            for (dy = ax.screen_y; dy < y; dy++) {
                 r = (c.r * (dy - ax.screen_y) / ax.screen_h);
                 g = (c.g * (dy - ax.screen_y) / ax.screen_h);
                 b = (c.b * (dy - ax.screen_y) / ax.screen_h);
                 a = (c.a * (dy - ax.screen_y) / ax.screen_h);
-                if ((x < buff.w) && (y < buff.h)) {
-                    p = (r << 24) |
-                        (g << 16) |
-                        (b << 8) |
-                        (a << 0);
-                    buff.pixels[dy * buff.w + x] = p;
-                }
+                p = (r << 24) |
+                    (g << 16) |
+                    (b << 8) |
+                    (a << 0);
+                buff.pixels[(dy % (uint32_t)buff.h) * buff.w + (x % (uint32_t)buff.w)] = p;
             }
         }
     }
