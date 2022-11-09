@@ -1,14 +1,22 @@
 [general]
 noise_floor = -80
 #text_font = /home/pi/bellini/fonts/DOTMATRI.TTF
-text_font = /home/pi/bellini/fonts/digital-7/digital-7.ttf
-audio_font = /home/pi/bellini/fonts/Gill Sans Pro/GillSansMTPro-Condensed.otf
-alpha = 0.97
-vis = pcm
+text_font = /home/ati/bellini/fonts/digital-7/digital-7.ttf
+audio_font = /home/ati/bellini/fonts/Gill Sans Pro/GillSansMTPro-Condensed.otf
+persistence = 0.97
+vis = ppm
+
+[output]
+# it's best to restart after modifying output rotation or size
+rotate = 1
+width = 800
+height = 480
+fullscreen = false
 
 [input]
 method = shmem
-source = /squeezelite-dc:a6:32:c0:5c:0d
+# name the correct source in /dev/shm here
+source = /squeezelite-10:16:1f:44:13:10
 
 [color]
 plot_r = "#B9FF00"
@@ -17,6 +25,7 @@ ax =     "#C1BDB2"
 ax_2 =   "#B33B2D"
 text =   "#FF2100"
 audio =  "#C1BDB2"
+oscilliscope = "#20FF00"
 
 # some nice phosphor colours
 #56ff00		# P1

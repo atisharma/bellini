@@ -9,7 +9,6 @@
 SDL_Window *gWindow = NULL;
 SDL_Renderer *gRenderer = NULL;
 SDL_Texture *gTarget = NULL;
-//SDL_Texture *gBacking = NULL;
 
 SDL_Event e;
 
@@ -46,6 +45,7 @@ void sdl_init(int w, int h, rgba *fg_color, rgba *bg_color, int rotate, bool ful
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
     } else {
+        // target window and renderer match buffer but may be rotated
         if (rotate%2) {
             gWindow = SDL_CreateWindow("bellini", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, h, w, SDL_WINDOW_RESIZABLE);
         } else {
@@ -117,23 +117,28 @@ int sdl_blit(const buffer buff, int frame_time_ms, int rotate) {
     // SDL_Delay doesn't seem to work?
     SDL_Delay(frame_time_ms);
 
-    int rc = 0, window_w, window_h;
-    SDL_GetWindowSize(gWindow, &window_w, &window_h);
-
     // texture matches buffer dimensions (not yet rotated)
     SDL_UpdateTexture(gTarget, NULL, buff.pixels, buff.w * sizeof(pixel));
+    SDL_Rect texture_rect = {0, 0, buff.w, buff.h};
 
     // work around https://stackoverflow.com/questions/28123292/sdl-rendersetscale-incorrectly-applies-to-rotated-bitmaps-in-sdl2-2-0-3
+    int window_w, window_h;
     if (rotate%2) {
         // scaling is applied before rotation
         // this works, but seems like a bug in SDL?
-        double s = fmax(buff.w/buff.h, buff.h/buff.w);
-        SDL_RenderSetScale(gRenderer, s * window_h/buff.w, s * window_h/buff.h);
+        SDL_GetWindowSize(gWindow, &window_h, &window_w);
+        //SDL_FRect window_rect = {0, 0, window_h, window_w};
+        SDL_RenderSetScale(
+                gRenderer,
+                fmax(window_w, window_h) / buff.w,
+                fmax(window_w, window_h) / buff.h
+                );
     }
-    SDL_RenderCopyExF(gRenderer, gTarget, NULL, NULL, rotate * 90, NULL, FLIP);
 
+    SDL_RenderCopyExF(gRenderer, gTarget, &texture_rect, NULL, rotate * 90, NULL, FLIP);
     SDL_RenderPresent(gRenderer);
 
+    int rc = 0;
     SDL_PollEvent(&e);
     if (e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
         rc = -1;
@@ -146,7 +151,6 @@ int sdl_blit(const buffer buff, int frame_time_ms, int rotate) {
 void sdl_cleanup(void) {
     TTF_Quit();
     SDL_DestroyTexture(gTarget);
-    //SDL_DestroyTexture(gBacking);
     SDL_DestroyWindow(gWindow);
     SDL_Quit();
 }

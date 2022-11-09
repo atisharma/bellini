@@ -564,6 +564,23 @@ All options are specified in config file, see in '/home/username/.config/bellini
             sprintf(textstr, "%+03.0fdB", ppm_r);
             bf_text(buffer_final, textstr, 5, 8, false, ax_l.screen_w - 100, y0, 0, audio_c);
             bf_text(buffer_final, "dB", 2, 16, true, 0, y0, 0, audio_c);
+
+            // top right text
+            // timer stuff
+            if ((now % 30) > 25) {
+                // show FPS
+                sprintf(textstr, "%3.0ffps", fps);
+                bf_text(buffer_final, textstr, 6, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, 0, audio_c);
+            } else if ((now % 30) > 20) {
+                // sampling rate
+                sprintf(textstr, "%4.1fkHz", (double)audio.rate / 1000);
+                bf_text(buffer_final, textstr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, 0, audio_c);
+            } else {
+                // little clock
+                length = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
+                bf_text(buffer_final, textstr, length, 10, false, ax_l.screen_x + ax_l.screen_w - 100, ax_l.screen_y + ax_l.screen_h - 80, 0, audio_c);
+            }
+
         }
 
         /* debugging info for the display
@@ -575,21 +592,6 @@ All options are specified in config file, see in '/home/username/.config/bellini
 
         // stuff common to all vis follows
         fps = fps * 0.95 + (1.0 - 0.95) * 1000.0 / dt_ms;
-
-        // timer stuff
-        if ((now % 30) > 25) {
-            // show FPS
-            sprintf(textstr, "%3.0ffps", fps);
-            bf_text(buffer_final, textstr, 6, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, 0, audio_c);
-        } else if ((now % 30) > 20) {
-            // sampling rate
-            sprintf(textstr, "%4.1fkHz", (double)audio.rate / 1000);
-            bf_text(buffer_final, textstr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, 0, audio_c);
-        } else {
-            // little clock
-            length = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
-            bf_text(buffer_final, textstr, length, 10, false, ax_l.screen_x + ax_l.screen_w - 100, ax_l.screen_y + ax_l.screen_h - 80, 0, audio_c);
-        }
 
 #endif
         // check if audio thread has exited unexpectedly

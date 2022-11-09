@@ -396,6 +396,7 @@ void bf_plot_bars(const buffer buff, const axes ax, const int data[], uint32_t n
     register pixel p;
     for (uint32_t i=0; i < num_points; i++) {
         y = (uint32_t)(ax.screen_h * (10 * log10(data[i]) - ax.y_min) / (ax.y_max - ax.y_min)) + ax.screen_y;
+        // y can overflow, so check bounds
         if (y > ax.screen_y && y < buff.h) {
             x = (uint32_t)((ax.screen_w * i) / num_points) + ax.screen_x;
             // draw peaks
