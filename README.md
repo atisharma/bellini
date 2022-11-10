@@ -5,16 +5,16 @@ Bellini is a fork of [CAVA](https://github.com/karlstav/cava/) initially intende
 It has grown to cover other visualisations also.
 The input infrastructure, config file handling is inherited from cava, so credit goes to the author(s) of that project.
 
-With the FFT, bellini primary goal is accuracy and correctness, and while CAVA displays to the terminal, bellini writes directly to the framebuffer. This allows some quite different outputs.
+With the FFT, bellini primary goal is accuracy and correctness while also looking aesthetically pleasing.
 
-Since the aims are somewhat different, and achieving those aims involved changing a substantial amount of the core code, I forked the project.
+Since the aims are somewhat different from cava, and achieving those aims involved changing a substantial amount of the core code, I forked the project.
 My hope is that some of the ideas developed here will make their way back upstream over time.
 
 Bellini inherits CAVA's input support, so might work with Pulseaudio, fifo (mpd), sndio, alsa and squeezelite. It's been successfully tested on squeezelite and ASLA loopback.
 
-I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a [Pimoroni Hyperpixel 4.0](https://shop.pimoroni.com/products/hyperpixel-4) LCD screen in landscape orientation, and get a smooth 60fps for the FFT vis, using about 50% on one thread, and about 10-15% on the other.
-On my desktop with 4k screen, the display is very choppy, but it's not really meant for that.
-CPU usage could be improved by further optimisation or by sacrificing visual effects.
+I use it on a Raspberry Pi 4B with the semi-official Bullseye 64-bit image and a [Pimoroni Hyperpixel 4.0](https://shop.pimoroni.com/products/hyperpixel-4) LCD screen in landscape orientation, and get a smooth 60fps for the FFT vis, using about 50% on one thread, and about 10-15% on the other.
+On my desktop it works very well.
+CPU usage could be improved by further optimisation.
 
 Here is a preview video of an older version (before the oscilliscope vis). It's smoother in real life, because of the interaction with the phone's video frame rate.
 
@@ -56,7 +56,7 @@ noise_floor = -100
 text_font = /home/pi/bellini/fonts/digital-7/digital-7.ttf
 audio_font = /home/pi/bellini/fonts/Gill Sans Pro/GillSansMTPro-Condensed.otf
 # decay rate for the fading of the display (< 1.0)
-alpha = 0.9
+alpha = 0.95
 # vis = ppm
 # vis = pcm
 vis = fft
@@ -109,4 +109,4 @@ Some assumptions are hard-coded (e.g. the upper/lower cutoff frequencies of the 
 
 - Input other than squeezelite's shmem and ASLA is untested and may be broken.
 - The pause detection currently only works with squeezelite
-- Code quality is a bit hacky. There are many things that need cleaning up, dead code etc.
+- Code quality is a bit hacky in places. There are many things that need cleaning up, dead code etc.
