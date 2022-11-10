@@ -11,7 +11,7 @@
 #include "debug.h"
 #include "util.h"
 
-#include "fbplot.h"
+#include "sdlplot.h"
 
 FT_Library library;
 FT_Face text_face;

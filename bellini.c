@@ -38,7 +38,7 @@
 #include "input/shmem.h"
 #include "input/sndio.h"
 
-#include "output/fbplot.h"
+#include "output/sdlplot.h"
 
 #ifdef __GNUC__
 // curses.h or other sources may already define

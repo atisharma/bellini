@@ -1,11 +1,11 @@
 Bellini
 =========
 
-Bellini is a fork of [CAVA](https://github.com/karlstav/cava/) to provide more a 'scientifically correct' spectrum analyser.
-Much of the heavy lifting and infrastructure was done by the author(s) of cava. So credit to them.
+Bellini is a fork of [CAVA](https://github.com/karlstav/cava/) initially intended to provide more a 'scientifically correct' spectrum analyser.
+It has grown to cover other visualisations also.
+The input infrastructure, config file handling is inherited from cava, so credit goes to the author(s) of that project.
 
-Like CAVA, bellini's goal is to provide a audio spectrum analyser for Linux from various inputs.
-Unlike CAVA, bellini primary goal is accuracy and correctness, and while CAVA displays to the terminal, bellini writes directly to the framebuffer. This allows some quite different outputs.
+With the FFT, bellini primary goal is accuracy and correctness, and while CAVA displays to the terminal, bellini writes directly to the framebuffer. This allows some quite different outputs.
 
 Since the aims are somewhat different, and achieving those aims involved changing a substantial amount of the core code, I forked the project.
 My hope is that some of the ideas developed here will make their way back upstream over time.
@@ -16,30 +16,36 @@ I use it on a Raspberry Pi 4B with the semi-official Buster 64-bit image and a [
 On my desktop with 4k screen, the display is very choppy, but it's not really meant for that.
 CPU usage could be improved by further optimisation or by sacrificing visual effects.
 
-Here is a preview video. It's smoother in real life, because of the interaction with the phone's video frame rate.
+Here is a preview video of an older version (before the oscilliscope vis). It's smoother in real life, because of the interaction with the phone's video frame rate.
 
 [![Here is a preview.](https://img.youtube.com/vi/KULyD5bTMlQ/0.jpg)](https://youtu.be/KULyD5bTMlQ "bellini preview")
 
 ## Features
 
-Distinguishing features include:
+### Visualisations
+- an audio spectrum analyser (FFT) for Linux (config option `vis=fft`)
+- raw PCM (waveform) visualisation (left & right channel vs time) (config option `vis=pcm`)
+- An oscilliscope visualisation (left vs right channel) suitable for listening to and viewing [oscilliscope music](https://www.oscilloscopemusic.com) (config option `vis=osc`)
+- an old-fashioned DIN / Type 1 [Peak Programme Meter](https://en.wikipedia.org/wiki/Peak_programme_meter) (`vis=ppm`)
 
-- an accurate two-channel amplitude spectrum on log-log plot (config option `vis=fft`)
+### features of the FFT/spectrum visualisation
+- an accurate two-channel amplitude spectrum on log-log plot 
 - windowing of the data (Hann window by default; Blackman-Nuttall and rectangular also implemented with a code recompilation)
 - amplitude spectrum axes marked off at 20dB intervals (amplitude) and powers of 10 / octaves (frequency)
 - noise floor truncation (basically the lower axis limit on the amplitude spectrum plot)
-- left/right merged colour schemes
-- a DIN / Type 1 [Peak Programme Meter](https://en.wikipedia.org/wiki/Peak_programme_meter) (`vis=ppm`)
-- a simple plot of the waveform (`vis=pcm`)
-- fast direct framebuffer output
+
+
+### Other features
+- fast SDL2 output
 - a natty clock
 - reloading of the config file if it's been modified
+- cute left/right merged colour schemes with phosphor-looking defaults
 
 
-## Installing
+## Installation and configuration
 
 Installation and compilation should be almost exactly the same as for CAVA. Please refer to those instructions.
-You also need freetype (which you probably already have). On Debian and Void, `ft2build.h` is found in `/usr/include/freetype2/` -- on other distributions you may have to change `Makefile.am` to specify, until I work out how to use automake properly.
+You also need freetype (which you probably already have) and `SDL2_ttf`. On Debian and Void, `ft2build.h` is found in `/usr/include/freetype2/` -- on other distributions you may have to change `Makefile.am` to specify, until I work out how to use automake properly.
 
 The config file should configure the following options:
 
@@ -54,6 +60,13 @@ alpha = 0.9
 # vis = ppm
 # vis = pcm
 vis = fft
+
+[output]
+# it's best to restart after modifying output rotation or size
+rotate = 0
+width = 960
+height = 540
+fullscreen = false
 
 [input]
 # only tested with squeezelite/shmem and ALSA loopback
@@ -73,23 +86,7 @@ audio =  "#888888"
 The font option must be the full (not relative) path of the font file (look under /usr/share/fonts/).
 The fonts I'm using in this example aren't free so you will need to replace them with your choices.
 
-To use with a Hyperpixel 4.0, your `/boot/config.txt` should contain:
-
-```
-dtoverlay=hyperpixel4
-enable_dpi_lcd=1
-dpi_group=2
-dpi_mode=87
-dpi_output_format=0x7f216
-dpi_timings=480 0 10 16 59 800 0 15 113 15 0 0 0 60 0 32000000 6
-
-# see https://github.com/pimoroni/hyperpixel4/issues/39 for rotation
-display_lcd_rotate=1
-#dtoverlay=vc4-fkms-v3d     # <-- enabling this breaks rotation
-```
-
-and possibly `arm_64bit=1` if you are using 64 bit.
-Notice the screen rotation. Get that wrong and the code will probably segfault.
+Output is via SDL. This causes some weirdness using framebuffer output on a Raspberry Pi 4 with a Hyperpixel 4 on raspbian 64bit so I have reverted to running it under wayland in that situation.
 
 
 Capturing audio
@@ -102,21 +99,14 @@ Troubleshooting & FAQ
 ---------------------
 
 
-### The flashing cursor is annoying
-
-If the flashing cursor is annoying you, put
-
-    @reboot echo "\e[?25l" > /dev/tty0
-
-in root's crontab. This will kill your cursor (on tty0).
-
-
 ### I'd like to change XYZ option
 
-Some assumptions are hard-coded (for instance the size of the framebuffer, the windowing, and the upper/lower cutoff frequencies of the FFT). Changing these involves at least editing some header file and recompiling, and may break the code. Some of these may be broken out to the config file in the future.
+Most important stuff is in the config file.
+Some assumptions are hard-coded (e.g. the upper/lower cutoff frequencies of the FFT). Changing these involves at least editing some header file and recompiling, and may break the code. Some of these may be broken out to the config file in the future.
 
 
 ### Bugs
 
 - Input other than squeezelite's shmem and ASLA is untested and may be broken.
 - The pause detection currently only works with squeezelite
+- Code quality is a bit hacky. There are many things that need cleaning up, dead code etc.

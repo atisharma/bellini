@@ -127,7 +127,6 @@ int sdl_blit(const buffer buff, int frame_time_ms, int rotate) {
         // scaling is applied before rotation
         // this works, but seems like a bug in SDL?
         SDL_GetWindowSize(gWindow, &window_h, &window_w);
-        //SDL_FRect window_rect = {0, 0, window_h, window_w};
         SDL_RenderSetScale(
                 gRenderer,
                 fmax(window_w, window_h) / buff.w,
