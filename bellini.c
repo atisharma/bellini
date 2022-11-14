@@ -397,6 +397,8 @@ All options are specified in config file, see in '/home/username/.config/bellini
 #ifdef NDEBUG
         // framebuffer vis
 
+        // TODO: move these visualisations into a library
+
         bf_blit(buffer_final, 15, p.rotate);
 
         if (!audio.running) {
@@ -512,6 +514,8 @@ All options are specified in config file, see in '/home/username/.config/bellini
             // Linear relation between dB and angle: theta = m*dB + c.
             double m = (max_angle - min_angle) / (max_dB - min_dB);
             double c = max_angle - m * max_dB;
+            // ppm was designed with an absolute window of 800x480
+            double ppm_scale = window_w / 800.0;
             // Physical dynamics of ppm meters:
             // the pole at -1.3545 corresponds to 20dB decay / 1.7s
             // as per Type I IEC 60268-10 (DIN PPM) spec.
@@ -521,12 +525,12 @@ All options are specified in config file, see in '/home/username/.config/bellini
             double angle_l = ppm_l * m + c;
             double angle_r = ppm_r * m + c;
             // Draw left and right needles on one dial.
-            int r = 320;                        // needle radius
+            int r = (int)(ppm_scale * 320);     // needle radius
             int x0 = (int)buffer_final.w / 2;   // needle origin (x)
-            int y0 = 60;                        // needle origin (y)
+            int y0 = (int)ppm_scale * 60;       // needle origin (y)
             // render the dial to the buffer
             bf_clear(buffer_final);
-            bf_text(buffer_final, "DIN PPM", 7, 10, false, ax_l.screen_x + 10, ax_l.screen_y + ax_l.screen_h - 80, 0, audio_c);
+            bf_text(buffer_final, "DIN PPM", 7, (int)(ppm_scale * 10), false, ax_l.screen_x + (int)(ppm_scale * 10), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
             // dB scale markings
             for (double dB = min_dB; dB < 0; dB += 5) {
                 bf_draw_ray(buffer_final, x0, y0, r+3, r+10, dB * m + c, 3, ax_c);
@@ -557,8 +561,8 @@ All options are specified in config file, see in '/home/username/.config/bellini
                 bf_draw_arc(buffer_final, x0, y0, r+10, c, max_dB * m + c, 5, ax2_c);
             }
             // readings
-            bf_draw_ray(buffer_final, x0, y0, r - 100, r + 20, angle_l, 5, plot_l_c);
-            bf_draw_ray(buffer_final, x0, y0, r - 100, r + 20, angle_r, 5, plot_r_c);
+            bf_draw_ray(buffer_final, x0, y0, r - (int)(ppm_scale * 100), r + (int)(ppm_scale * 20), angle_l, 5, plot_l_c);
+            bf_draw_ray(buffer_final, x0, y0, r - (int)(ppm_scale * 100), r + (int)(ppm_scale * 20), angle_r, 5, plot_r_c);
             sprintf(textstr, "%+03.0fdB", ppm_l);
             bf_text(buffer_final, textstr, 5, 8, false, ax_l.screen_x + 10, y0, 0, audio_c);
             sprintf(textstr, "%+03.0fdB", ppm_r);
@@ -570,15 +574,15 @@ All options are specified in config file, see in '/home/username/.config/bellini
             if ((now % 30) > 25) {
                 // show FPS
                 sprintf(textstr, "%3.0ffps", fps);
-                bf_text(buffer_final, textstr, 6, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, 0, audio_c);
+                bf_text(buffer_final, textstr, 6, 10, false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 120), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
             } else if ((now % 30) > 20) {
                 // sampling rate
                 sprintf(textstr, "%4.1fkHz", (double)audio.rate / 1000);
-                bf_text(buffer_final, textstr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - 120, ax_l.screen_y + ax_l.screen_h - 80, 0, audio_c);
+                bf_text(buffer_final, textstr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 120), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
             } else {
                 // little clock
                 length = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
-                bf_text(buffer_final, textstr, length, 10, false, ax_l.screen_x + ax_l.screen_w - 100, ax_l.screen_y + ax_l.screen_h - 80, 0, audio_c);
+                bf_text(buffer_final, textstr, length, 10, false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 100), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
             }
 
         }

@@ -1,14 +1,19 @@
 [general]
 noise_floor = -80
 #text_font = /home/pi/bellini/fonts/DOTMATRI.TTF
-text_font = /home/ati/bellini/fonts/digital-7/digital-7.ttf
-audio_font = /home/ati/bellini/fonts/Gill Sans Pro/GillSansMTPro-Condensed.otf
+text_font = /home/pi/bellini/fonts/digital-7/digital-7.ttf
+audio_font = /home/pi/bellini/fonts/Gill Sans Pro/GillSansMTPro-Condensed.otf
 persistence = 0.97
 vis = ppm
 
 [output]
 # it's best to restart after modifying output rotation or size
 rotate = 1
+# The width and the height refer to the resultion of the internal software
+# buffer canvas used before copying to the SDL texture.
+# It is nice to match your screen's aspect ratio so that fullscreen does not
+# cause any unsightly stretching.
+# If these buffer dimensions are too large, things slow down.
 width = 800
 height = 480
 fullscreen = false
