@@ -406,10 +406,11 @@ All options are specified in config file, see in '/home/username/.config/bellini
             // show a clock, screensaver or something
             bf_clear(buffer_clock);
             time(&now);
+            double clock_scale = window_w / 800.0;
             length = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
-            bf_text(buffer_clock, textstr, length, 64, true, 0, 200, 1, text_c);
+            bf_text(buffer_clock, textstr, length, (int)(clock_scale * 64), true, 0, (int)(clock_scale * 200), 1, text_c);
             length = strftime(textstr, sizeof(textstr), "%a, %d %B %Y", localtime(&now));
-            bf_text(buffer_clock, textstr, length, 14, true, 0, 80, 1, text_c);
+            bf_text(buffer_clock, textstr, length, (int)(clock_scale * 14), true, 0, (int)(clock_scale * 80), 1, text_c);
             bf_blend(buffer_final, buffer_clock, 0.98);
 
             // wait, then check if running again.
@@ -533,56 +534,56 @@ All options are specified in config file, see in '/home/username/.config/bellini
             bf_text(buffer_final, "DIN PPM", 7, (int)(ppm_scale * 10), false, ax_l.screen_x + (int)(ppm_scale * 10), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
             // dB scale markings
             for (double dB = min_dB; dB < 0; dB += 5) {
-                bf_draw_ray(buffer_final, x0, y0, r+3, r+10, dB * m + c, 3, ax_c);
+                bf_draw_ray(buffer_final, x0, y0, r+(int)(ppm_scale * 3), r+(int)(ppm_scale * 10), dB * m + c, (int)(ppm_scale * 4), ax_c);
             }
             for (double dB = min_dB; dB < 0; dB += 10) {
-                bf_draw_ray(buffer_final, x0, y0, r+3, r+22, dB * m + c, 3, ax_c);
+                bf_draw_ray(buffer_final, x0, y0, r+(int)(ppm_scale * 3), r+(int)(ppm_scale * 22), dB * m + c, (int)(ppm_scale * 4), ax_c);
             }
             // scale labels
             int x, y;
             bf_ray_xy(x0, y0, r + 30, -50 * m + c, &x, &y);
-            bf_text(buffer_final, "-50", 3, 8, false, x - 24, y, 0, audio_c);
+            bf_text(buffer_final, "-50", 3, (int)(ppm_scale * 8), false, x - (int)(ppm_scale * 24), y, 0, audio_c);
             bf_ray_xy(x0, y0, r + 30, c, &x, &y);
-            bf_text(buffer_final, "0", 1, 8, false, x + 3, y + 8, 0, audio_c);
+            bf_text(buffer_final, "0", 1, (int)(ppm_scale * 8), false, x + (int)(ppm_scale * 3), y + (int)(ppm_scale * 8), 0, audio_c);
             bf_ray_xy(x0, y0, r + 30, 5 * m + c, &x, &y);
-            bf_text(buffer_final, "+5", 2, 8, false, x, y, 0, ax2_c);
+            bf_text(buffer_final, "+5", 2, (int)(ppm_scale * 8), false, x, y, 0, ax2_c);
             // dB excess
             for (double dB = 0; dB <= max_dB; dB += 5) {
-                bf_draw_ray(buffer_final, x0, y0, r+10, r+22, dB * m + c, 3, ax2_c);
+                bf_draw_ray(buffer_final, x0, y0, r+10, r+(int)(ppm_scale * 22), dB * m + c, (int)(ppm_scale * 4), ax2_c);
             }
             // main dial
-            bf_draw_arc(buffer_final, x0, y0, r, min_dB * m + c, max_dB * m + c, 2, ax_c);
+            bf_draw_arc(buffer_final, x0, y0, r, min_dB * m + c, max_dB * m + c, (int)(ppm_scale * 2), ax_c);
             // dial excess; glow if hit
             if (ppm_l >= 0 || ppm_r >= 0 || clip) {
                 rgba excess_c = ax2_c;
                 excess_c.r = 255;
-                bf_draw_arc(buffer_final, x0, y0, r+10, c, max_dB * m + c, 6, excess_c);
+                bf_draw_arc(buffer_final, x0, y0, r+(int)(ppm_scale * 10), c, max_dB * m + c, (int)(ppm_scale * 6), excess_c);
             } else {
-                bf_draw_arc(buffer_final, x0, y0, r+10, c, max_dB * m + c, 5, ax2_c);
+                bf_draw_arc(buffer_final, x0, y0, r+(int)(ppm_scale * 10), c, max_dB * m + c, (int)(ppm_scale * 5), ax2_c);
             }
             // readings
-            bf_draw_ray(buffer_final, x0, y0, r - (int)(ppm_scale * 100), r + (int)(ppm_scale * 20), angle_l, 5, plot_l_c);
-            bf_draw_ray(buffer_final, x0, y0, r - (int)(ppm_scale * 100), r + (int)(ppm_scale * 20), angle_r, 5, plot_r_c);
+            bf_draw_ray(buffer_final, x0, y0, r - (int)(ppm_scale * 100), r + (int)(ppm_scale * 20), angle_l, (int)(ppm_scale * 5), plot_l_c);
+            bf_draw_ray(buffer_final, x0, y0, r - (int)(ppm_scale * 100), r + (int)(ppm_scale * 20), angle_r, (int)(ppm_scale * 5), plot_r_c);
             sprintf(textstr, "%+03.0fdB", ppm_l);
-            bf_text(buffer_final, textstr, 5, 8, false, ax_l.screen_x + 10, y0, 0, audio_c);
+            bf_text(buffer_final, textstr, 5, (int)(ppm_scale * 8), false, ax_l.screen_x + (int)(ppm_scale * 10), y0, 0, audio_c);
             sprintf(textstr, "%+03.0fdB", ppm_r);
-            bf_text(buffer_final, textstr, 5, 8, false, ax_l.screen_w - 100, y0, 0, audio_c);
-            bf_text(buffer_final, "dB", 2, 16, true, 0, y0, 0, audio_c);
+            bf_text(buffer_final, textstr, 5, (int)(ppm_scale * 8), false, ax_l.screen_w - (int)(ppm_scale * 100), y0, 0, audio_c);
+            bf_text(buffer_final, "dB", 2, (int)(ppm_scale * 16), true, 0, y0, 0, audio_c);
 
             // top right text
             // timer stuff
             if ((now % 30) > 25) {
                 // show FPS
                 sprintf(textstr, "%3.0ffps", fps);
-                bf_text(buffer_final, textstr, 6, 10, false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 120), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
+                bf_text(buffer_final, textstr, 6, (int)(ppm_scale * 10), false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 120), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
             } else if ((now % 30) > 20) {
                 // sampling rate
                 sprintf(textstr, "%4.1fkHz", (double)audio.rate / 1000);
-                bf_text(buffer_final, textstr, 7, 10, false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 120), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
+                bf_text(buffer_final, textstr, 7, (int)(ppm_scale * 10), false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 120), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
             } else {
                 // little clock
                 length = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
-                bf_text(buffer_final, textstr, length, 10, false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 100), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
+                bf_text(buffer_final, textstr, length, (int)(ppm_scale * 10), false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 100), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
             }
 
         }
