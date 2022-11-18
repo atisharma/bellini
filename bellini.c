@@ -51,6 +51,7 @@
 
 bool clean_exit = false;
 struct config_params p;
+SDL_Event event;
 
 // general: handle signals
 void sig_handler(int sig_no) {
@@ -395,10 +396,31 @@ All options are specified in config file, see in '/home/username/.config/bellini
         }
 
 #ifdef NDEBUG
+
+        // check for keypresses
+        while (SDL_PollEvent(&event)) {
+            if( event.type == SDL_KEYDOWN ) {
+                switch( event.key.keysym.sym ) {
+                    case SDLK_q:
+                        clean_exit = true;
+                        break;
+                    case SDLK_v:
+                        if (!strcmp("fft", p.vis)) {
+                            p.vis = "ppm";
+                        } else if (!strcmp("ppm", p.vis)) {
+                            p.vis = "pcm";
+                        } else if (!strcmp("pcm", p.vis)) {
+                            p.vis = "osc";
+                        } else if (!strcmp("osc", p.vis)) {
+                            p.vis = "fft";
+                        }
+                        break;
+                }
+            }
+        }
+
         // framebuffer vis
-
         // TODO: move these visualisations into a library
-
         bf_blit(buffer_final, 15, p.rotate);
 
         if (!audio.running) {

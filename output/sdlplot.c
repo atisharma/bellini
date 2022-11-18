@@ -472,3 +472,4 @@ void bf_blit(buffer buff, int frame_time, int rotate) {
     // relies on pixel format being the same
     sdl_blit(buff, frame_time, rotate);
 }
+
