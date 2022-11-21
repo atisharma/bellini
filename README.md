@@ -12,9 +12,9 @@ My hope is that some of the ideas developed here will make their way back upstre
 
 Bellini inherits CAVA's input support, so might work with Pulseaudio, fifo (mpd), sndio, alsa and squeezelite. It's been successfully tested on squeezelite and ASLA loopback.
 
-I use it on a Raspberry Pi 4B with the semi-official Bullseye 64-bit image and a [Pimoroni Hyperpixel 4.0](https://shop.pimoroni.com/products/hyperpixel-4) LCD screen in landscape orientation, and get a smooth 60fps for the FFT vis, using about 50% on one thread, and about 10-15% on the other.
-On my desktop it works very well.
-CPU usage could be improved by further optimisation.
+I use it on a Raspberry Pi 4B with the semi-official Bullseye 64-bit image and either a [Pimoroni Hyperpixel 4.0](https://shop.pimoroni.com/products/hyperpixel-4) LCD screen in landscape orientation, or a waveshare 5.5" OLED screen, and get a smooth 60fps for the FFT vis, using about 50% on one thread, and about 10-15% on the other.
+On my desktop it also works very well with negligible CPU usage.
+CPU usage could probably be improved by further optimisation.
 
 Here is a preview video of an older version (before the oscilliscope vis). It's smoother in real life, because of the interaction with the phone's video frame rate.
 
