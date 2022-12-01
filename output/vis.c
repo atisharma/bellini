@@ -21,18 +21,7 @@ void vis_sleep(long double nsec) {
 }
 
 
-int vis_fps() {
-    last_fps_timer = fps_timer;
-    fps_timer = clock();
-    fps = fps * 0.95 + (1.0 - 0.95) * 1000.0 / dt_ms;
-    dt_ms = (fps_timer - last_fps_timer) * 1000 / CLOCKS_PER_SEC;
-    return dt_ms;
-}
-
-
 void vis_ppm(buffer buffer_final, struct audio_data *audio, int window_w, axes ax_l, rgba audio_c, rgba ax_c, rgba ax2_c, rgba plot_l_c, rgba plot_r_c) {
-
-    vis_fps();
 
     // PPM
     // peak_l and peak_r are averaged over last 5ms
@@ -115,28 +104,16 @@ void vis_ppm(buffer buffer_final, struct audio_data *audio, int window_w, axes a
     bf_text(buffer_final, textstr, 5, (int)(ppm_scale * 8), false, ax_l.screen_w - (int)(ppm_scale * 100), y0, 0, audio_c);
     bf_text(buffer_final, "dB", 2, (int)(ppm_scale * 16), true, 0, y0, 0, audio_c);
 
-    // top right text
-    // timer stuff
-    if ((now % 30) > 25) {
-        // show FPS
-        sprintf(textstr, "%3.0ffps", fps);
-        bf_text(buffer_final, textstr, 6, (int)(ppm_scale * 10), false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 120), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
-    } else if ((now % 30) > 20) {
-        // sampling rate
-        sprintf(textstr, "%4.1fkHz", (double)audio->rate / 1000);
-        bf_text(buffer_final, textstr, 7, (int)(ppm_scale * 10), false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 120), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
-    } else {
-        // little clock
-        length = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
-        bf_text(buffer_final, textstr, length, (int)(ppm_scale * 10), false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 100), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
-    }
+    // top right text: sampling rate
+    sprintf(textstr, "%4.1fkHz", (double)audio->rate / 1000);
+    bf_text(buffer_final, textstr, 7, (int)(ppm_scale * 10), false, ax_l.screen_x + ax_l.screen_w - (int)(ppm_scale * 120), ax_l.screen_y + ax_l.screen_h - (int)(ppm_scale * 80), 0, audio_c);
+
+    vis_sleep(2e9 / 3000);
 
 }
 
 
 void vis_osc(buffer buffer_final, struct audio_data *audio, axes ax_l, rgba osc_c) {
-
-    vis_fps();
 
     // oscilliscope waveform plotter to framebuffer
     // set plotting axes
@@ -150,12 +127,12 @@ void vis_osc(buffer buffer_final, struct audio_data *audio, axes ax_l, rgba osc_
     // plot waveform
     bf_plot_osc(buffer_final, ax_l, audio->in_l, audio->in_r, audio->FFTbufferSize, osc_c);
 
+    vis_sleep(2e9 / 3000);
+
 }
 
 
 void vis_pcm(buffer buffer_final, struct audio_data *audio, axes ax_l, axes ax_r, rgba plot_l_c, rgba plot_r_c) {
-
-    vis_fps();
 
     // waveform plotter to framebuffer
     // set plotting axes
@@ -178,8 +155,6 @@ void vis_pcm(buffer buffer_final, struct audio_data *audio, axes ax_l, axes ax_r
 
 
 void vis_fft(buffer buffer_final, struct audio_data *audio, fftw_plan p_l, fftw_plan p_r, struct config_params *p, axes ax_l, axes ax_r, rgba ax_c, rgba ax2_c, rgba plot_l_c, rgba plot_r_c) {
-
-    vis_fps();
 
     // window, execute FFT
     window(audio, HANN);
@@ -216,12 +191,9 @@ void vis_fft(buffer buffer_final, struct audio_data *audio, fftw_plan p_l, fftw_
 
 void vis_clock(buffer buffer_final, buffer buffer_clock, int window_w, rgba text_c) {
 
-    vis_fps();
-
     // if audio is paused wait and continue
     // show a clock, screensaver or something
     bf_clear(buffer_clock);
-    time(&now);
     double clock_scale = window_w / 800.0;
     length = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
     bf_text(buffer_clock, textstr, length, (int)(clock_scale * 64), true, 0, (int)(clock_scale * 200), 1, text_c);

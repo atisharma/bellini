@@ -409,37 +409,16 @@ All options are specified in config file, see in '/home/username/.config/bellini
         bf_blit(buffer_final, 15, p.rotate);
 
         if (!audio.running) {
-            // if audio is paused wait and continue
-            // show a clock, screensaver or something
             vis_clock(buffer_final, buffer_clock, window_w, text_c);
-            //continue;
-
         } else if (!strcmp("fft", p.vis)) {
-
             vis_fft(buffer_final, &audio, p_l, p_r, &p, ax_l, ax_r, ax_c, ax2_c, plot_l_c, plot_r_c);
-
         } else if (!strcmp("pcm", p.vis)) {
-
             vis_pcm(buffer_final, &audio, ax_l, ax_r, plot_l_c, plot_r_c);
-
         } else if (!strcmp("osc", p.vis)) {
-
             vis_osc(buffer_final, &audio, ax_l, osc_c);
-
         } else {
-
             vis_ppm(buffer_final, &audio, window_w, ax_l, audio_c, ax_c, ax2_c, plot_l_c, plot_r_c);
-
         }
-
-        /* debugging info for the display
-            sprintf(textstr, "%+7.2f peak_dB", peak_dB);
-            bf_text(buffer_final, textstr, 15, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 80, 0, audio_c);
-            sprintf(textstr, "%+7.2f noise_floor", p.noise_floor);
-            bf_text(buffer_final, textstr, 19, 8, false, ax_l.screen_x, ax_l.screen_y + ax_l.screen_h - 110, 0, audio_c);
-        end debugging info */
-
-        // stuff common to all vis follows
 
 #endif
         // check if audio thread has exited unexpectedly
