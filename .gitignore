@@ -1,4 +1,4 @@
-cava
+bellini
 *.so
 *.so.0
 *.o
@@ -31,3 +31,5 @@ ltmain.sh
 m4/
 missing
 version
+tags
+*/.dirstamp
