@@ -12,6 +12,7 @@
 
 #include "input/common.h"
 
+
 void window(struct audio_data *audio, int type);
 
 int *make_bins(struct audio_data *audio,

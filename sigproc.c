@@ -18,6 +18,7 @@
 #include "debug.h"
 #include "util.h"
 
+
 // apply window in-place on audio data
 void window(struct audio_data *audio, int type) {
     double a0, a1, a2, a3;

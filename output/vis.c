@@ -1,9 +1,9 @@
 #include "output/vis.h"
 
 
-time_t now;
 char textstr[40];
 int length;
+int rotate;
 
 double peak_dB = -10.0;
 double peak_l = 0, peak_r = 0;
@@ -14,6 +14,56 @@ int dt_ms = 15;
 clock_t fps_timer = 10;
 clock_t last_fps_timer = 0;
 
+buffer buffer_final;
+buffer buffer_clock;
+
+
+void vis_init(struct config_params *p, axes *ax_r, axes *ax_l, rgba text_c, rgba bg_c) {
+
+    // config: font
+    freetype_init(p->text_font, p->audio_font);
+
+    /*** set up sdl display ***/
+    rotate = p->rotate;
+
+    // left channel axes
+    ax_l->screen_x = 0;
+    ax_l->screen_y = 0;
+    ax_l->screen_w = p->width - 1;
+    ax_l->screen_h = p->height;
+    ax_l->x_min = log10(LOWER_CUTOFF_FREQ);
+    ax_l->x_max = log10(UPPER_CUTOFF_FREQ);
+    ax_l->y_min = -1000;    // dB
+    ax_l->y_max = 500;
+
+    // right channel axes are an offset copy of the left
+    ax_r->screen_x = 1; // offset so l/r channels alternate pixels
+    ax_r->screen_y = ax_l->screen_y;
+    ax_r->screen_w = ax_l->screen_w;
+    ax_r->screen_h = ax_l->screen_h;
+    ax_r->x_min = ax_l->x_min;
+    ax_r->x_max = ax_l->x_max;
+    ax_r->y_min = ax_l->y_min;
+    ax_r->y_max = ax_l->y_max;
+
+    // plotting init
+    sdl_init(p->width, p->height, &text_c, &bg_c, p->rotate, p->fullscreen);
+    bf_init(&buffer_final, p->width, p->height);
+    bf_clear(buffer_final);
+    bf_init(&buffer_clock, p->width, p->height);
+
+}
+
+
+void vis_cleanup() {
+    // free screen buffers
+    bf_free_pixels(&buffer_final);
+    bf_free_pixels(&buffer_clock);
+
+    freetype_cleanup();
+    sdl_cleanup();
+}
+
 
 void vis_sleep(long double nsec) {
     struct timespec req = {.tv_sec = 0, .tv_nsec = nsec};
@@ -21,7 +71,7 @@ void vis_sleep(long double nsec) {
 }
 
 
-void vis_ppm(buffer buffer_final, struct audio_data *audio, int window_w, axes ax_l, rgba audio_c, rgba ax_c, rgba ax2_c, rgba plot_l_c, rgba plot_r_c) {
+void vis_ppm(struct audio_data *audio, int window_w, axes ax_l, rgba audio_c, rgba ax_c, rgba ax2_c, rgba plot_l_c, rgba plot_r_c) {
 
     // PPM
     // peak_l and peak_r are averaged over last 5ms
@@ -113,7 +163,7 @@ void vis_ppm(buffer buffer_final, struct audio_data *audio, int window_w, axes a
 }
 
 
-void vis_osc(buffer buffer_final, struct audio_data *audio, axes ax_l, rgba osc_c) {
+void vis_osc(struct audio_data *audio, axes ax_l, rgba osc_c) {
 
     // oscilliscope waveform plotter to framebuffer
     // set plotting axes
@@ -132,7 +182,7 @@ void vis_osc(buffer buffer_final, struct audio_data *audio, axes ax_l, rgba osc_
 }
 
 
-void vis_pcm(buffer buffer_final, struct audio_data *audio, axes ax_l, axes ax_r, rgba plot_l_c, rgba plot_r_c) {
+void vis_pcm(struct audio_data *audio, axes ax_l, axes ax_r, rgba plot_l_c, rgba plot_r_c) {
 
     // waveform plotter to framebuffer
     // set plotting axes
@@ -154,7 +204,7 @@ void vis_pcm(buffer buffer_final, struct audio_data *audio, axes ax_l, axes ax_r
 }
 
 
-void vis_fft(buffer buffer_final, struct audio_data *audio, fftw_plan p_l, fftw_plan p_r, struct config_params *p, axes ax_l, axes ax_r, rgba ax_c, rgba ax2_c, rgba plot_l_c, rgba plot_r_c) {
+void vis_fft(struct audio_data *audio, fftw_plan p_l, fftw_plan p_r, struct config_params *p, axes ax_l, axes ax_r, rgba ax_c, rgba ax2_c, rgba plot_l_c, rgba plot_r_c) {
 
     // window, execute FFT
     window(audio, HANN);
@@ -189,8 +239,10 @@ void vis_fft(buffer buffer_final, struct audio_data *audio, fftw_plan p_l, fftw_
 }
 
 
-void vis_clock(buffer buffer_final, buffer buffer_clock, int window_w, rgba text_c) {
+void vis_clock(int window_w, rgba text_c) {
 
+    time_t now;
+    time(&now);
     // if audio is paused wait and continue
     // show a clock, screensaver or something
     bf_clear(buffer_clock);
@@ -204,4 +256,9 @@ void vis_clock(buffer buffer_final, buffer buffer_clock, int window_w, rgba text
     // wait, then check if running again.
     vis_sleep(2e8);
 
+}
+
+
+void vis_blit() {
+    bf_blit(buffer_final, 15, rotate);
 }

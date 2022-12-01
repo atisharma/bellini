@@ -17,6 +17,7 @@ struct audio_data {
     int index;
     double *in_r, *in_l, *windowed_l, *windowed_r;
     fftw_complex *out_l, *out_r;
+    fftw_plan p_l, p_r;
     int format;
     unsigned int rate;
     char *source;   // alsa device, fifo path or pulse source
@@ -26,6 +27,10 @@ struct audio_data {
     int running;    // for shmem input
     char error_message[1024];
 };
+
+void audio_init(struct audio_data *audio, char *audio_source);
+
+void audio_cleanup(struct audio_data *audio, int sourceIsAuto);
 
 void reset_output_buffers(struct audio_data *audio);
 

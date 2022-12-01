@@ -75,6 +75,7 @@ void sig_handler(int sig_no) {
 }
 
 // config: reloader
+// TODO: move to config.c
 void check_config_changed(char *configPath,
         rgba *plot_l_c, rgba *plot_r_c,
         rgba *ax_c, rgba *ax2_c,
@@ -189,9 +190,6 @@ All options are specified in config file, see in '/home/username/.config/bellini
         exit(EXIT_FAILURE);
     }
 
-    // config: font
-    freetype_init(p.text_font, p.audio_font);
-
     // config: plot colours
     // TODO: use parse_color
     uint32_t r, g, b, a=0;
@@ -213,69 +211,14 @@ All options are specified in config file, see in '/home/username/.config/bellini
 
     /*** set up sdl display ***/
 
-    // left channel axes
-    axes ax_l;
-    ax_l.screen_x = 0;
-    ax_l.screen_y = 0;
-    ax_l.screen_w = p.width - 1;
-    ax_l.screen_h = p.height;
-    ax_l.x_min = log10(LOWER_CUTOFF_FREQ);
-    ax_l.x_max = log10(UPPER_CUTOFF_FREQ);
-    ax_l.y_min = -1000;    // dB
-    ax_l.y_max = 500;
-
-    // right channel axes are an offset copy of the left
-    axes ax_r = ax_l;
-    ax_r.screen_x = 1; // offset so l/r channels alternate pixels
-
-    // plotting init
-    int window_h = p.height;
-    int window_w = p.width;
-    sdl_init(window_w, window_h, &text_c, &bg_c, p.rotate, p.fullscreen);
-    buffer buffer_final;
-    bf_init(&buffer_final, p.width, p.height);
-    bf_clear(buffer_final);
-    buffer buffer_clock;
-    bf_init(&buffer_clock, p.width, p.height);
+    // channel axes
+    axes ax_l, ax_r;
+    vis_init(&p, &ax_r, &ax_l, text_c, bg_c);
 
     /*** set up audio processing ***/
 
     struct audio_data audio;
-    memset(&audio, 0, sizeof(audio));
-
-    // input: init
-    audio.source = malloc(1 + strlen(p.audio_source));
-    strcpy(audio.source, p.audio_source);
-
-    audio.format = -1;
-    audio.rate = 0;
-    audio.FFTbufferSize = 8192;
-    audio.terminate = 0;
-    audio.channels = 2;
-    audio.index = 0;
-    audio.running = 1;
-
-    // allocate fft memory
-    audio.in_r = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
-    audio.in_l = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
-    memset(audio.in_r, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(double));
-    memset(audio.in_l, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(double));
-
-    audio.windowed_r = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
-    audio.windowed_l = fftw_alloc_real(2 * (audio.FFTbufferSize / 2 + 1));
-
-    audio.out_l = fftw_alloc_complex(2 * (audio.FFTbufferSize / 2 + 1));
-    audio.out_r = fftw_alloc_complex(2 * (audio.FFTbufferSize / 2 + 1));
-    memset(audio.out_l, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(fftw_complex));
-    memset(audio.out_r, 0, 2 * (audio.FFTbufferSize / 2 + 1) * sizeof(fftw_complex));
-
-    fftw_plan p_l, p_r;
-    p_l = fftw_plan_dft_r2c_1d(audio.FFTbufferSize, audio.windowed_l, audio.out_l, FFTW_MEASURE);
-    p_r = fftw_plan_dft_r2c_1d(audio.FFTbufferSize, audio.windowed_r, audio.out_r, FFTW_MEASURE);
-
-    debug("got buffer size: %d, %d, %d", audio.FFTbufferSize);
-
-    reset_output_buffers(&audio);
+    audio_init(&audio, p.audio_source);
 
     /*** set up audio input ***/
 
@@ -406,18 +349,17 @@ All options are specified in config file, see in '/home/username/.config/bellini
             }
         }
 
-        bf_blit(buffer_final, 15, p.rotate);
-
+        vis_blit();
         if (!audio.running) {
-            vis_clock(buffer_final, buffer_clock, window_w, text_c);
+            vis_clock(p.width, text_c);
         } else if (!strcmp("fft", p.vis)) {
-            vis_fft(buffer_final, &audio, p_l, p_r, &p, ax_l, ax_r, ax_c, ax2_c, plot_l_c, plot_r_c);
+            vis_fft(&audio, audio.p_l, audio.p_r, &p, ax_l, ax_r, ax_c, ax2_c, plot_l_c, plot_r_c);
         } else if (!strcmp("pcm", p.vis)) {
-            vis_pcm(buffer_final, &audio, ax_l, ax_r, plot_l_c, plot_r_c);
+            vis_pcm(&audio, ax_l, ax_r, plot_l_c, plot_r_c);
         } else if (!strcmp("osc", p.vis)) {
-            vis_osc(buffer_final, &audio, ax_l, osc_c);
+            vis_osc(&audio, ax_l, osc_c);
         } else {
-            vis_ppm(buffer_final, &audio, window_w, ax_l, audio_c, ax_c, ax2_c, plot_l_c, plot_r_c);
+            vis_ppm(&audio, p.width, ax_l, audio_c, ax_c, ax2_c, plot_l_c, plot_r_c);
         }
 
 #endif
@@ -432,30 +374,12 @@ All options are specified in config file, see in '/home/username/.config/bellini
 
     /*** exit ***/
 
-    // free screen buffers
-    bf_free_pixels(&buffer_final);
-    bf_free_pixels(&buffer_clock);
-
     // tell input thread to terminate
     audio.terminate = 1;
     pthread_join(p_thread, NULL);
 
-    if (sourceIsAuto)
-        free(audio.source);
-
-    // free fft working space
-    fftw_free(audio.in_r);
-    fftw_free(audio.in_l);
-    fftw_free(audio.windowed_r);
-    fftw_free(audio.windowed_l);
-    fftw_free(audio.out_r);
-    fftw_free(audio.out_l);
-    fftw_destroy_plan(p_l);
-    fftw_destroy_plan(p_r);
-    fftw_cleanup();
-
-    freetype_cleanup();
-    sdl_cleanup();
+    vis_cleanup();
+    audio_cleanup(&audio, sourceIsAuto);
 
     return exit_condition;
 }
