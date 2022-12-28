@@ -80,6 +80,8 @@ void sdl_init(int w, int h, rgba *fg_color, rgba *bg_color, int rotate, bool ful
     if (TTF_Init() < 0) {
         printf("TTF could not initialize! TTF_Error: %s\n", TTF_GetError());
     }
+
+    SDL_ShowCursor(SDL_DISABLE);
 }
 
 /*
