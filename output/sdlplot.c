@@ -431,16 +431,16 @@ void bf_plot_line(const buffer buff, const axes ax, const double data[], uint32_
 void bf_plot_polar(const buffer buff, const axes ax, const double data[], uint32_t num_points, rgba c) {
     // plot some data to the buffer, polar plot
 
-    register uint32_t dx = (ax.screen_w > ax.screen_h) ? (ax.screen_w - ax.screen_h) / 2 : 0;
-    register uint32_t dy = (ax.screen_w < ax.screen_h) ? (ax.screen_h - ax.screen_w) / 2 : 0;
+    register uint32_t x0 = ax.screen_w / 2;
+    register uint32_t y0 = ax.screen_h / 2;
     register uint32_t x, y;
-    register double theta, r, l;
+    register double theta, r;
+    register double r0 = fmin(x0, y0);
     for (uint32_t i=0; i < num_points; i++) {
         theta = 2.0 * M_PI * i / num_points;
-        l = fmin(ax.screen_w, ax.screen_h) / 2;
-        r = fabs(0.45 + (data[i] - ax.y_min) / (ax.y_max - ax.y_min) / 2.8);
-        x = (uint32_t)(ax.screen_x + l * (r * cos(theta) + 1)) + dx;
-        y = (uint32_t)(ax.screen_y + l * (r * sin(theta) + 1)) + dy;
+        r = r0 * (0.5 + data[i] / 2 / 65536.0);
+        x = (uint32_t)(r * cos(theta) + x0);
+        y = (uint32_t)(r * sin(theta) + y0);
         bf_set_pixel(buff, x, y,   c);
     }
 }
