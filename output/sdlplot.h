@@ -89,4 +89,5 @@ void bf_plot_axes(const buffer buff, const axes ax, const rgba c1, const rgba c2
 
 void bf_plot_bars(const buffer buff, const axes ax, const int data[], uint32_t num_points, rgba c);
 void bf_plot_line(const buffer buff, const axes ax, const double data[], uint32_t num_points, rgba c);
+void bf_plot_polar(const buffer buff, const axes ax, const double data[], uint32_t num_points, uint32_t dx, rgba c);
 void bf_plot_osc(const buffer buff, const axes ax, const double data_x[], const double data_y[], uint32_t num_points, rgba c);

@@ -342,6 +342,8 @@ All options are specified in config file, see in '/home/username/.config/bellini
                         } else if (!strcmp("pcm", p.vis)) {
                             p.vis = "osc";
                         } else if (!strcmp("osc", p.vis)) {
+                            p.vis = "pol";
+                        } else if (!strcmp("pol", p.vis)) {
                             p.vis = "fft";
                         }
                         break;
@@ -358,6 +360,8 @@ All options are specified in config file, see in '/home/username/.config/bellini
             vis_pcm(&audio, &ax_l, &ax_r, plot_l_c, plot_r_c);
         } else if (!strcmp("osc", p.vis)) {
             vis_osc(&audio, &ax_l, &ax_r, osc_c);
+        } else if (!strcmp("pol", p.vis)) {
+            vis_polar(&audio, &ax_l, &ax_r, plot_l_c, plot_r_c);
         } else {
             vis_ppm(&audio, p.width, ax_l, audio_c, ax_c, ax2_c, plot_l_c, plot_r_c);
         }

@@ -419,7 +419,7 @@ void bf_plot_bars(const buffer buff, const axes ax, const int data[], uint32_t n
 }
 
 void bf_plot_line(const buffer buff, const axes ax, const double data[], uint32_t num_points, rgba c) {
-    // plot some data to the buffer
+    // plot some data to the buffer, cartesian plot
     register uint32_t x, y;
     for (uint32_t i=1; i < num_points; i++) {
         x = (uint32_t)((ax.screen_w * i) / num_points) + ax.screen_x;
@@ -428,11 +428,23 @@ void bf_plot_line(const buffer buff, const axes ax, const double data[], uint32_
     }
 }
 
+void bf_plot_polar(const buffer buff, const axes ax, const double data[], uint32_t num_points, uint32_t dx, rgba c) {
+    // plot some data to the buffer, polar plot
+
+    register uint32_t x, y;
+    register double theta, r, l;
+    for (uint32_t i=1; i < num_points; i++) {
+        theta = 2.0 * M_PI * i / num_points;
+        l = fmin(ax.screen_w, ax.screen_h) / 2;
+        r = fabs(0.5 + (data[i] - ax.y_min) / (ax.y_max - ax.y_min) / 2);
+        x = (uint32_t)(ax.screen_x + l * (r * sin(theta) + 1) + dx);
+        y = (uint32_t)(ax.screen_y + l * (r * cos(theta) + 1));
+        bf_set_pixel(buff, x,   y,   c);
+    }
+}
+
 void bf_plot_osc(const buffer buff, const axes ax, const double data_x[], const double data_y[], uint32_t num_points, rgba c) {
     // plot some data to the buffer like an oscilliscope
-
-    bf_blur(buff);
-    bf_shade(buff, 0.8);    // 0.8 is not bad
 
     // model afterimage with complementary colour
     rgba c_afterimage = {
@@ -448,7 +460,7 @@ void bf_plot_osc(const buffer buff, const axes ax, const double data_x[], const 
     register uint32_t x=(uint32_t)data_x[0], y=(uint32_t)data_y[0];
 
     // impersonate an afterimage
-    // To get a really clean afterimage, you would have to do some additive trace tricks.
+    // to get a really clean afterimage, you would have to do some additive trace tricks.
     for (uint32_t i=0; i < num_points - 1; i+=2) {
         x = (uint32_t)(h * (data_x[i] - ax.y_min) / range) + ax.screen_x;
         y = (uint32_t)(h * (data_y[i] - ax.y_min) / range) + ax.screen_y;
@@ -459,6 +471,7 @@ void bf_plot_osc(const buffer buff, const axes ax, const double data_x[], const 
         bf_set_pixel(buff, x, y-1, c_afterimage);
     }
 
+    // draw the new image
     for (uint32_t i=0; i < num_points - 1; i++) {
         x = (uint32_t)(h * (data_x[i] - ax.y_min) / range) + ax.screen_x;
         y = (uint32_t)(h * (data_y[i] - ax.y_min) / range) + ax.screen_y;

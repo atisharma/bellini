@@ -20,6 +20,9 @@ buffer buffer_clock;
 
 void axes_update(struct audio_data *audio, axes *ax_l, axes *ax_r) {
     double max=0, min=1e10;
+
+    // update max, min based on peak, min audio signal
+    // Alternatively, define limits using fact that audio is signed 16 bit int
     for (int n = 0; n < audio->FFTbufferSize; n++) {
         max = fmax(max, audio->in_l[n]);
         max = fmax(max, audio->in_r[n]);
@@ -36,6 +39,7 @@ void axes_update(struct audio_data *audio, axes *ax_l, axes *ax_r) {
     ax_r->y_min = min;
     ax_l->y_max = max;
     ax_r->y_max = max;
+
 }
 
 
@@ -185,19 +189,33 @@ void vis_ppm(struct audio_data *audio, int window_w, axes ax_l, rgba audio_c, rg
 
 
 void vis_osc(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba osc_c) {
+
     // oscilliscope waveform plotter to framebuffer
-    axes_update(audio, ax_l, ax_r);
+    ax_l->y_min = -32766;
+    ax_r->y_min = -32766;
+    ax_l->y_max = 32766;
+    ax_r->y_max = 32766;
+
+    bf_blur(buffer_final);
+    bf_shade(buffer_final, 0.8);    // 0.8 is not bad
+
     bf_plot_osc(buffer_final, *ax_l, audio->in_l, audio->in_r, audio->FFTbufferSize, osc_c);
     vis_sleep(2e9 / 3000);
+
 }
 
 
 void vis_pcm(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba plot_l_c, rgba plot_r_c) {
+
     // waveform plotter to framebuffer
-    axes_update(audio, ax_l, ax_r);
+    ax_l->y_min = -32766;
+    ax_r->y_min = -32766;
+    ax_l->y_max = 32766;
+    ax_r->y_max = 32766;
     bf_clear(buffer_final);
     bf_plot_line(buffer_final, *ax_l, audio->in_l, audio->FFTbufferSize, plot_l_c);
     bf_plot_line(buffer_final, *ax_r, audio->in_r, audio->FFTbufferSize, plot_r_c);
+
 }
 
 
@@ -231,6 +249,19 @@ void vis_fft(struct audio_data *audio, fftw_plan p_l, fftw_plan p_r, struct conf
     bf_plot_axes(buffer_final, ax_l, ax_c, ax2_c);
 
     // sleep to time with the shmem input refresh rate
+    vis_sleep(2e9 / 3000);
+
+}
+
+
+void vis_polar(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba plot_l_c, rgba plot_r_c) {
+
+    // plot the sample in a polar plot
+    bf_blur(buffer_final);
+    bf_shade(buffer_final, 0.75);
+
+    bf_plot_polar(buffer_final, *ax_l, audio->in_l, audio->FFTbufferSize / 3, 0, plot_l_c);
+    bf_plot_polar(buffer_final, *ax_r, audio->in_r, audio->FFTbufferSize / 3, ax_r->screen_w - ax_r->screen_h, plot_r_c);
     vis_sleep(2e9 / 3000);
 
 }
