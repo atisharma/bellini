@@ -329,25 +329,43 @@ All options are specified in config file, see in '/home/username/.config/bellini
 
         // check for keypresses
         while (SDL_PollEvent(&event)) {
-            if( event.type == SDL_KEYDOWN ) {
-                switch( event.key.keysym.sym ) {
-                    case SDLK_q:
-                        clean_exit = true;
-                        break;
-                    case SDLK_v:
-                        if (!strcmp("fft", p.vis)) {
-                            p.vis = "ppm";
-                        } else if (!strcmp("ppm", p.vis)) {
-                            p.vis = "pcm";
-                        } else if (!strcmp("pcm", p.vis)) {
-                            p.vis = "osc";
-                        } else if (!strcmp("osc", p.vis)) {
-                            p.vis = "pol";
-                        } else if (!strcmp("pol", p.vis)) {
-                            p.vis = "fft";
-                        }
-                        break;
-                }
+            switch(event.type) {
+                case SDL_KEYDOWN:
+                    switch( event.key.keysym.sym ) {
+                        case SDLK_q:
+                            clean_exit = true;
+                            break;
+                        case SDLK_v:
+                            if (!strcmp("fft", p.vis)) {
+                                p.vis = "ppm";
+                            } else if (!strcmp("ppm", p.vis)) {
+                                p.vis = "pcm";
+                            } else if (!strcmp("pcm", p.vis)) {
+                                p.vis = "osc";
+                            } else if (!strcmp("osc", p.vis)) {
+                                p.vis = "pol";
+                            } else if (!strcmp("pol", p.vis)) {
+                                p.vis = "fft";
+                            }
+                            break;
+                    }
+                    break;
+                case SDL_MOUSEBUTTONDOWN:
+                    if (!strcmp("fft", p.vis)) {
+                        p.vis = "ppm";
+                    } else if (!strcmp("ppm", p.vis)) {
+                        p.vis = "pcm";
+                    } else if (!strcmp("pcm", p.vis)) {
+                        p.vis = "osc";
+                    } else if (!strcmp("osc", p.vis)) {
+                        p.vis = "pol";
+                    } else if (!strcmp("pol", p.vis)) {
+                        p.vis = "fft";
+                    }
+                    break;
+                case SDL_QUIT:
+                    clean_exit = true;
+                    break;
             }
         }
 
