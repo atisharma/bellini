@@ -355,9 +355,9 @@ All options are specified in config file, see in '/home/username/.config/bellini
         } else if (!strcmp("fft", p.vis)) {
             vis_fft(&audio, audio.p_l, audio.p_r, &p, ax_l, ax_r, ax_c, ax2_c, plot_l_c, plot_r_c);
         } else if (!strcmp("pcm", p.vis)) {
-            vis_pcm(&audio, ax_l, ax_r, plot_l_c, plot_r_c);
+            vis_pcm(&audio, &ax_l, &ax_r, plot_l_c, plot_r_c);
         } else if (!strcmp("osc", p.vis)) {
-            vis_osc(&audio, ax_l, osc_c);
+            vis_osc(&audio, &ax_l, &ax_r, osc_c);
         } else {
             vis_ppm(&audio, p.width, ax_l, audio_c, ax_c, ax2_c, plot_l_c, plot_r_c);
         }

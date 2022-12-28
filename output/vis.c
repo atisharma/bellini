@@ -18,6 +18,27 @@ buffer buffer_final;
 buffer buffer_clock;
 
 
+void axes_update(struct audio_data *audio, axes *ax_l, axes *ax_r) {
+    double max=0, min=1e10;
+    for (int n = 0; n < audio->FFTbufferSize; n++) {
+        max = fmax(max, audio->in_l[n]);
+        max = fmax(max, audio->in_r[n]);
+        max = fmax(max, ax_l->y_max);
+        max = fmax(max, ax_r->y_max);
+
+        min = fmin(min, audio->in_l[n]);
+        min = fmin(min, audio->in_r[n]);
+        min = fmin(min, ax_l->y_min);
+        min = fmin(min, ax_r->y_min);
+    }
+
+    ax_l->y_min = min;
+    ax_r->y_min = min;
+    ax_l->y_max = max;
+    ax_r->y_max = max;
+}
+
+
 void vis_init(struct config_params *p, axes *ax_r, axes *ax_l, rgba text_c, rgba bg_c) {
 
     // config: font
@@ -163,44 +184,20 @@ void vis_ppm(struct audio_data *audio, int window_w, axes ax_l, rgba audio_c, rg
 }
 
 
-void vis_osc(struct audio_data *audio, axes ax_l, rgba osc_c) {
-
+void vis_osc(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba osc_c) {
     // oscilliscope waveform plotter to framebuffer
-    // set plotting axes
-    // TODO: move this to an axes update function
-    for (int n = 0; n < audio->FFTbufferSize; n++) {
-        ax_l.y_max = fmax(ax_l.y_max, audio->in_l[n]);
-        ax_l.y_min = fmin(ax_l.y_min, audio->in_l[n]);
-        ax_l.y_max = fmax(ax_l.y_max, audio->in_r[n]);
-        ax_l.y_min = fmin(ax_l.y_min, audio->in_r[n]);
-    }
-    // plot waveform
-    bf_plot_osc(buffer_final, ax_l, audio->in_l, audio->in_r, audio->FFTbufferSize, osc_c);
-
+    axes_update(audio, ax_l, ax_r);
+    bf_plot_osc(buffer_final, *ax_l, audio->in_l, audio->in_r, audio->FFTbufferSize, osc_c);
     vis_sleep(2e9 / 3000);
-
 }
 
 
-void vis_pcm(struct audio_data *audio, axes ax_l, axes ax_r, rgba plot_l_c, rgba plot_r_c) {
-
+void vis_pcm(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba plot_l_c, rgba plot_r_c) {
     // waveform plotter to framebuffer
-    // set plotting axes
-    for (int n = 0; n < audio->FFTbufferSize; n++) {
-        //int i = (n + audio->index) % audio->FFTbufferSize;
-        ax_l.y_max = fmax(ax_l.y_max, audio->in_l[n]);
-        ax_l.y_min = fmin(ax_l.y_min, audio->in_l[n]);
-        ax_l.y_max = fmax(ax_l.y_max, audio->in_r[n]);
-        ax_l.y_min = fmin(ax_l.y_min, audio->in_r[n]);
-        ax_r.y_max = ax_l.y_max;
-        ax_r.y_min = ax_l.y_min;
-    }
-
-    // plot waveform
+    axes_update(audio, ax_l, ax_r);
     bf_clear(buffer_final);
-    bf_plot_line(buffer_final, ax_l, audio->in_l, audio->FFTbufferSize, plot_l_c);
-    bf_plot_line(buffer_final, ax_r, audio->in_r, audio->FFTbufferSize, plot_r_c);
-
+    bf_plot_line(buffer_final, *ax_l, audio->in_l, audio->FFTbufferSize, plot_l_c);
+    bf_plot_line(buffer_final, *ax_r, audio->in_r, audio->FFTbufferSize, plot_r_c);
 }
 
 
@@ -217,15 +214,15 @@ void vis_fft(struct audio_data *audio, fftw_plan p_l, fftw_plan p_r, struct conf
     int *bins_right = make_bins(audio, number_of_bars, RIGHT_CHANNEL); 
 
     // FFT plotter to framebuffer
-    // set plotting axes
+    // set plotting axes; persistent as based on bins_lr
     for (int n = 0; n < number_of_bars; n++) {
         double dB = 10 * log10(fmax(bins_left[n], bins_right[n]));
         peak_dB = fmax(dB, peak_dB);
-        ax_l.y_max = peak_dB;
-        ax_l.y_min = peak_dB + p->noise_floor;
-        ax_r.y_max = peak_dB;
-        ax_r.y_min = peak_dB + p->noise_floor;
     }
+    ax_l.y_max = peak_dB;
+    ax_l.y_min = peak_dB + p->noise_floor;
+    ax_r.y_max = peak_dB;
+    ax_r.y_min = peak_dB + p->noise_floor;
 
     bf_shade(buffer_final, p->persistence);
     // plot spectrum
@@ -254,7 +251,7 @@ void vis_clock(int window_w, rgba text_c) {
     bf_blend(buffer_final, buffer_clock, 0.98);
 
     // wait, then check if running again.
-    vis_sleep(2e8);
+    vis_sleep(1e8);
 
 }
 
