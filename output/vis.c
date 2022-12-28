@@ -263,8 +263,8 @@ void vis_polar(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba plot_l_c, 
     // last 75 ms
     double ms = 75.0;
     int num_samples = (int)fmin(audio->FFTbufferSize, (ms * (double)audio->rate / 1000.0));
-    bf_plot_polar(buffer_final, *ax_l, audio->in_l, num_samples, 0, plot_l_c);
-    bf_plot_polar(buffer_final, *ax_r, audio->in_r, num_samples, 1, plot_r_c);
+    bf_plot_polar(buffer_final, *ax_l, audio->in_l, num_samples, plot_l_c);
+    bf_plot_polar(buffer_final, *ax_r, audio->in_r, num_samples, plot_r_c);
     vis_sleep(2e9 / 3000);
 
 }
