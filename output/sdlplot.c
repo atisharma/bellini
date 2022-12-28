@@ -431,8 +431,8 @@ void bf_plot_line(const buffer buff, const axes ax, const double data[], uint32_
 void bf_plot_polar(const buffer buff, const axes ax, const double data[], uint32_t num_points, rgba c) {
     // plot some data to the buffer, polar plot
 
-    register uint32_t dx = (buff.w > buff.h) ? (buff.w - buff.h) / 2 : 0;
-    register uint32_t dy = (buff.w < buff.h) ? (buff.h - buff.w) / 2 : 0;
+    register uint32_t dx = (ax.screen_w > ax.screen_h) ? (ax.screen_w - ax.screen_h) / 2 : 0;
+    register uint32_t dy = (ax.screen_w < ax.screen_h) ? (ax.screen_h - ax.screen_w) / 2 : 0;
     register uint32_t x, y;
     register double theta, r, l;
     for (uint32_t i=0; i < num_points; i++) {
@@ -460,8 +460,8 @@ void bf_plot_osc(const buffer buff, const axes ax, const double data_x[], const 
     register double range = ax.y_max - ax.y_min;
 
     register uint32_t x=(uint32_t)data_x[0], y=(uint32_t)data_y[0];
-    register uint32_t dx = (buff.w > buff.h) ? (buff.w - buff.h) / 2 : 0;
-    register uint32_t dy = (buff.w < buff.h) ? (buff.h - buff.w) / 2 : 0;
+    register uint32_t dx = (ax.screen_w > ax.screen_h) ? (ax.screen_w - ax.screen_h) / 2 : 0;
+    register uint32_t dy = (ax.screen_w < ax.screen_h) ? (ax.screen_h - ax.screen_w) / 2 : 0;
 
     // impersonate an afterimage
     // to get a really clean afterimage, you would have to do some additive trace tricks.
