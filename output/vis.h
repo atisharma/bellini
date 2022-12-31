@@ -20,6 +20,8 @@ void vis_fft(struct audio_data *audio, fftw_plan p_l, fftw_plan p_r, struct conf
 
 void vis_polar(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba plot_l_c, rgba plot_r_c);
 
+void vis_julia(struct audio_data *audio, rgba col);
+
 void vis_clock(int window_w, rgba text_c);
 
 void vis_blit();
