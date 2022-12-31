@@ -484,6 +484,45 @@ void bf_plot_osc(const buffer buff, const axes ax, const double data_x[], const 
 
 }
 
+void bf_plot_julia(const buffer buff, double cx, double cy, rgba col) {
+    // plot a Julia set
+    // I'm amazed how fast this is
+
+    // choose R > 0 such that R^n - R >= sqrt(cx^2 + cy^2)
+    double R = 1e-4 + 0.5 + sqrt(1 + 4 * (cx*cx + cy*cy));
+
+    uint32_t l = (buff.w < buff.h) ? buff.w : buff.h;
+    register double zx, zy, temp;
+
+    for (int x=0; x<(int)buff.w; x++) {
+        for (int y=0; y<(int)buff.h; y++) {
+            // maybe add a zoom feature
+            zx = 0.7 * 2 * R * (x - (int)buff.w/2) / l;
+            zy = 0.7 * 2 * R * (y - (int)buff.h/2) / l;
+
+            int iteration = 0;
+            int max_iteration = 120;
+
+            while (((zx * zx + zy * zy) < (R * R)) && (iteration < max_iteration)) {
+                temp = zx * zx - zy * zy;
+                zy = 2 * zx * zy  + cy;
+                zx = temp + cx;
+                iteration++;
+            } 
+            if (iteration < max_iteration) {
+                rgba shade = {
+                    // deliberate overflow
+                    (uint32_t)(((col.g + col.b) * iteration) / max_iteration),
+                    (uint32_t)(((col.r + col.b) * iteration) / max_iteration),
+                    (uint32_t)(((col.r + col.g) * iteration) / max_iteration),
+                    col.a
+                };
+                bf_set_pixel(buff, x, y, shade);
+            };
+        }
+    }
+}
+
 void bf_blit(buffer buff, int frame_time, int rotate) {
     // blit buffer pixels to the SDL texture
     // relies on pixel format being the same

@@ -1,13 +1,15 @@
 #include "output/vis.h"
 
 
-char textstr[40];
+char textstr[50];
 int length;
 int rotate;
 
 double peak_dB = -10.0;
 double peak_l = 0, peak_r = 0;
 double ppm_l = -60, ppm_r = -60;
+
+double r = 0.5, theta = 7.0;
 
 double fps = 30;
 int dt_ms = 15;
@@ -266,6 +268,42 @@ void vis_polar(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba plot_l_c, 
     bf_plot_polar(buffer_final, *ax_l, audio->in_l, num_samples, plot_l_c);
     bf_plot_polar(buffer_final, *ax_r, audio->in_r, num_samples, plot_r_c);
     vis_sleep(2e9 / 3000);
+
+}
+
+
+void vis_julia(struct audio_data *audio, rgba col) {
+
+    bf_blur(buffer_final);
+    bf_shade(buffer_final, 0.999);
+
+    double peak_l = 0;
+    double peak_r = 0;
+    // peak_l and peak_r are averaged over last 20ms
+    int num_samples = (int)(20 * audio->rate / 1000.0);
+    for (int n = 0; n < num_samples; n++) {
+        int i = (n + audio->index) % audio->FFTbufferSize;
+        peak_l += fabs(audio->in_l[i]);
+        peak_r += fabs(audio->in_r[i]);
+    }
+    peak_l /= num_samples;
+    peak_r /= num_samples;
+
+
+    double a = 0.92;
+    theta *= a;
+    r *= a;
+    theta += (1.0 - a) * log10(peak_l + peak_r + 1e-4) * 1.9;
+    r += (1.0 - a) * (log10(fabs(peak_r - peak_l + 1e-4)) / 4);
+    double cx = r * cos(theta);
+    double cy = r * sin(theta);
+
+    bf_plot_julia(buffer_final, cx, cy, col);
+
+    //sprintf(textstr, "cx: %+3.2f, cy: %+3.2f", cx, cy);
+    //bf_text(buffer_final, textstr, 20, 8, false, 10, 10, 0, col);
+    //sprintf(textstr, "r: %+3.2f, theta: %+3.2f", r, theta);
+    //bf_text(buffer_final, textstr, 22, 8, false, 10, 30, 0, col);
 
 }
 
