@@ -25,8 +25,11 @@ Here is a preview video of an older version (before the oscilliscope vis). It's 
 ### Visualisations
 - an audio spectrum analyser (FFT) for Linux (config option `vis=fft`)
 - raw PCM (waveform) visualisation (left & right channel vs time) (config option `vis=pcm`)
+- raw PCM (waveform) polar plot visualisation (left & right channel vs angle) (config option `vis=pol`)
 - An oscilliscope visualisation (left vs right channel) suitable for listening to and viewing [oscilliscope music](https://www.oscilloscopemusic.com) (config option `vis=osc`)
 - an old-fashioned DIN / Type 1 [Peak Programme Meter](https://en.wikipedia.org/wiki/Peak_programme_meter) (`vis=ppm`)
+- a Julia set visualisation (config option `vis=jul`)
+
 
 ### features of the FFT/spectrum visualisation
 - an accurate two-channel amplitude spectrum on log-log plot 
@@ -110,3 +113,4 @@ Some assumptions are hard-coded (e.g. the upper/lower cutoff frequencies of the 
 - Input other than squeezelite's shmem and ASLA is untested and may be broken.
 - The pause detection currently only works with squeezelite
 - Code quality is a bit hacky in places. There are many things that need cleaning up, dead code etc.
+- Double free on exit, hanging pointers, etc.
