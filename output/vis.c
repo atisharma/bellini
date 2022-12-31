@@ -44,7 +44,6 @@ void axes_update(struct audio_data *audio, axes *ax_l, axes *ax_r) {
 
 }
 
-
 void vis_init(struct config_params *p, axes *ax_r, axes *ax_l, rgba text_c, rgba bg_c) {
 
     // config: font
@@ -81,7 +80,6 @@ void vis_init(struct config_params *p, axes *ax_r, axes *ax_l, rgba text_c, rgba
 
 }
 
-
 void vis_cleanup() {
     // free screen buffers
     bf_free_pixels(&buffer_final);
@@ -91,12 +89,10 @@ void vis_cleanup() {
     sdl_cleanup();
 }
 
-
 void vis_sleep(long double nsec) {
     struct timespec req = {.tv_sec = 0, .tv_nsec = nsec};
     nanosleep(&req, NULL);
 }
-
 
 void vis_ppm(struct audio_data *audio, int window_w, axes ax_l, rgba audio_c, rgba ax_c, rgba ax2_c, rgba plot_l_c, rgba plot_r_c) {
 
@@ -189,7 +185,6 @@ void vis_ppm(struct audio_data *audio, int window_w, axes ax_l, rgba audio_c, rg
 
 }
 
-
 void vis_osc(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba osc_c) {
 
     // oscilliscope waveform plotter to framebuffer
@@ -206,7 +201,6 @@ void vis_osc(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba osc_c) {
 
 }
 
-
 void vis_pcm(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba plot_l_c, rgba plot_r_c) {
 
     // waveform plotter to framebuffer
@@ -219,7 +213,6 @@ void vis_pcm(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba plot_l_c, rg
     bf_plot_line(buffer_final, *ax_r, audio->in_r, audio->FFTbufferSize, plot_r_c);
 
 }
-
 
 void vis_fft(struct audio_data *audio, fftw_plan p_l, fftw_plan p_r, struct config_params *p, axes ax_l, axes ax_r, rgba ax_c, rgba ax2_c, rgba plot_l_c, rgba plot_r_c) {
 
@@ -255,7 +248,6 @@ void vis_fft(struct audio_data *audio, fftw_plan p_l, fftw_plan p_r, struct conf
 
 }
 
-
 void vis_polar(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba plot_l_c, rgba plot_r_c) {
 
     // plot the sample in a polar plot
@@ -270,7 +262,6 @@ void vis_polar(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba plot_l_c, 
     vis_sleep(2e9 / 3000);
 
 }
-
 
 void vis_julia(struct audio_data *audio, rgba col) {
 
@@ -307,26 +298,24 @@ void vis_julia(struct audio_data *audio, rgba col) {
 
 }
 
-
 void vis_clock(int window_w, rgba text_c) {
 
     time_t now;
     time(&now);
     // if audio is paused wait and continue
     // show a clock, screensaver or something
-    bf_clear(buffer_clock);
+    bf_shade(buffer_clock, 0.99);
     double clock_scale = window_w / 800.0;
     length = strftime(textstr, sizeof(textstr), "%H:%M", localtime(&now));
     bf_text(buffer_clock, textstr, length, (int)(clock_scale * 64), true, 0, (int)(clock_scale * 200), 1, text_c);
     length = strftime(textstr, sizeof(textstr), "%a, %d %B %Y", localtime(&now));
     bf_text(buffer_clock, textstr, length, (int)(clock_scale * 14), true, 0, (int)(clock_scale * 80), 1, text_c);
-    bf_blend(buffer_final, buffer_clock, 0.98);
+    bf_copy(buffer_final, buffer_clock);
 
     // wait, then check if running again.
-    vis_sleep(1e8);
+    vis_sleep(1e7);
 
 }
-
 
 void vis_blit() {
     bf_blit(buffer_final, 15, rotate);
