@@ -30,7 +30,7 @@ ax =     "#C1BDB2"
 ax_2 =   "#B33B2D"
 text =   "#FF2100"
 audio =  "#C1BDB2"
-oscilliscope = "#20FF00"
+oscilloscope = "#20FF00"
 
 # some nice phosphor colours
 #56ff00		# P1

@@ -446,7 +446,7 @@ void bf_plot_polar(const buffer buff, const axes ax, const double data[], uint32
 }
 
 void bf_plot_osc(const buffer buff, const axes ax, const double data_x[], const double data_y[], uint32_t num_points, rgba c) {
-    // plot some data to the buffer like an oscilliscope
+    // plot some data to the buffer like an oscilloscope
 
     // model afterimage with complementary colour
     rgba c_afterimage = {

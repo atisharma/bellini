@@ -126,7 +126,7 @@ bool load_colors(struct config_params *p, dictionary *ini) {
     p->audio_col = strdup(iniparser_getstring(ini, "color:audio", "#FF5000"));
 
     free(p->osc_col);
-    p->osc_col = strdup(iniparser_getstring(ini, "color:oscilliscope", "#FF5000"));
+    p->osc_col = strdup(iniparser_getstring(ini, "color:oscilloscope", "#FF5000"));
 
     return true;
 }

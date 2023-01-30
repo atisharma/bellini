@@ -187,7 +187,7 @@ void vis_ppm(struct audio_data *audio, int window_w, axes ax_l, rgba audio_c, rg
 
 void vis_osc(struct audio_data *audio, axes *ax_l, axes *ax_r, rgba osc_c) {
 
-    // oscilliscope waveform plotter to framebuffer
+    // oscilloscope waveform plotter to framebuffer
     ax_l->y_min = -32766;
     ax_r->y_min = -32766;
     ax_l->y_max = 32766;
