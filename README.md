@@ -16,7 +16,7 @@ I use it on a Raspberry Pi 4B with the semi-official Bullseye 64-bit image and e
 On my desktop it also works very well with negligible CPU usage.
 CPU usage could probably be improved by further optimisation.
 
-Here is a preview video of an older version (before the oscilliscope vis). It's smoother in real life, because of the interaction with the phone's video frame rate.
+Here is a preview video of an older version (before the oscilloscope vis). It's smoother in real life, because of the interaction with the phone's video frame rate.
 
 [![Here is a preview.](https://img.youtube.com/vi/KULyD5bTMlQ/0.jpg)](https://youtu.be/KULyD5bTMlQ "bellini preview")
 
@@ -26,7 +26,7 @@ Here is a preview video of an older version (before the oscilliscope vis). It's 
 - an audio spectrum analyser (FFT) for Linux (config option `vis=fft`)
 - raw PCM (waveform) visualisation (left & right channel vs time) (config option `vis=pcm`)
 - raw PCM (waveform) polar plot visualisation (left & right channel vs angle) (config option `vis=pol`)
-- An oscilliscope visualisation (left vs right channel) suitable for listening to and viewing [oscilliscope music](https://www.oscilloscopemusic.com) (config option `vis=osc`)
+- An oscilloscope visualisation (left vs right channel) suitable for listening to and viewing [oscilloscope music](https://www.oscilloscopemusic.com) (config option `vis=osc`)
 - an old-fashioned DIN / Type 1 [Peak Programme Meter](https://en.wikipedia.org/wiki/Peak_programme_meter) (`vis=ppm`)
 - a Julia set visualisation (config option `vis=jul`)
 
